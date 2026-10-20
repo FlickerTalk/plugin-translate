@@ -1,7 +1,13 @@
 // The plugin's own tests (Plan §53, app#177): how it names and picks languages, and the flow of a
 // translation against a fake core, with the real Ionic the app lends the frame.
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { AUTO, MAX_CHARS, defaultTarget, languageName, matchLanguage, sortLanguages, swapped, tooLong } from "./dist/index.js";
+import { LANGUAGES, catalogueOf, t } from "./dist/i18n.js";
+
+const HERE = import.meta.dirname;
+const manifest = JSON.parse(readFileSync(join(HERE, "module.json"), "utf8"));
 
 describe("a language", () => {
   it("is named in the app's language, with a capital letter as a list shows it", () => {
@@ -111,5 +117,103 @@ describe("swapping", () => {
       text: "Hello",
       result: "Bonjour",
     });
+  });
+});
+
+describe("the catalogue", () => {
+  const APP_LANGUAGES = ["en", "es", "fr", "de", "it", "pt", "ro", "ru", "uk", "pl", "tr", "ar", "hi", "bn", "id", "vi", "th", "ja", "ko", "zh-CN", "zh-TW"];
+  const placeholders = (text) => [...text.matchAll(/\{(\w+)\}/g)].map(([, name]) => name).sort();
+
+  it("speaks the 21 languages of the app, with the same keys in each and none left empty", () => {
+    expect([...LANGUAGES].sort()).toEqual([...APP_LANGUAGES].sort());
+    const keys = Object.keys(catalogueOf("en")).sort();
+    for (const lang of LANGUAGES) {
+      expect(Object.keys(catalogueOf(lang)).sort(), lang).toEqual(keys);
+      for (const key of keys) {
+        expect(catalogueOf(lang)[key].trim(), `${lang}.${key}`).not.toBe("");
+        // A text keeps the blanks English has, or the plugin's words would go missing.
+        expect(placeholders(catalogueOf(lang)[key]), `${lang}.${key}`).toEqual(placeholders(catalogueOf("en")[key]));
+      }
+    }
+  });
+
+  it("tells the size of a download before it starts, in every language", () => {
+    expect(t("en", "downloadText", { from: "German", to: "Spanish" })).toContain("about 30 MB");
+    for (const lang of LANGUAGES) expect(catalogueOf(lang).downloadText, lang).toContain("30");
+  });
+
+  it("falls back to the base language and then to English", () => {
+    expect(t("pt-BR", "translate")).toBe("Traduzir");
+    expect(t("xx", "translate")).toBe("Translate");
+    expect(t("es", "no-such-key")).toBe("no-such-key");
+  });
+
+  it("puts the words into the sentence that says them", () => {
+    expect(t("en", "same", { language: "Spanish" })).toBe("The text is already in this language: Spanish.");
+    expect(t("en", "translate", { language: "Spanish" })).toBe("Translate");
+  });
+});
+
+describe("the manifest", () => {
+  // The 20 languages of the app besides English, in which the catalogue shows the plugin's name
+  // and summary (plugin-sdk, `locales` in module.schema.json).
+  const LOCALES = ["es", "pt", "fr", "de", "it", "ro", "ru", "uk", "pl", "tr", "ar", "hi", "bn", "id", "vi", "th", "ja", "ko", "zh-CN", "zh-TW"];
+  const codePoints = (text) => [...text].length;
+
+  it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
+    const { locales, ...rest } = manifest;
+    expect(rest).toEqual({
+      id: "com.flickertalk.translate",
+      name: "Translator",
+      version: "1.0.0",
+      icon: "language-outline",
+      minCoreVersion: "1.7.0",
+      components: ["ft-translate"],
+      permissions: { messages: "given", translate: true, send: "propose", storage: "small" },
+      opens: ["text/plain"],
+      summary: "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
+    });
+    expect(locales).toBeTypeOf("object");
+    expect(JSON.parse(readFileSync(join(HERE, "package.json"), "utf8")).version).toBe(manifest.version);
+  });
+
+  it("names and sums up the plugin in the 20 other languages of the app, within the SDK's limits", () => {
+    expect(Object.keys(manifest.locales ?? {})).toEqual(LOCALES);
+    expect(manifest.locales.es).toEqual({
+      name: "Traductor",
+      summary: "Traduce un mensaje o tu borrador en el teléfono. Los paquetes de idioma se descargan una vez de Apple o Google; el texto nunca sale del teléfono.",
+    });
+    for (const lang of LOCALES) {
+      const { name, summary } = manifest.locales[lang];
+      expect(Object.keys(manifest.locales[lang]).sort(), lang).toEqual(["name", "summary"]);
+      expect(codePoints(summary.trim()), lang).toBeGreaterThan(0);
+      expect(codePoints(summary), lang).toBeLessThanOrEqual(200);
+      expect(codePoints(name.trim()), lang).toBeGreaterThan(0);
+      expect(codePoints(name), lang).toBeLessThanOrEqual(64);
+    }
+  });
+
+  it("calls the plugin in each language what the plugin calls itself", () => {
+    expect(catalogueOf("en").title).toBe(manifest.name);
+    for (const lang of LOCALES) {
+      expect(LANGUAGES, lang).toContain(lang);
+      expect(manifest.locales[lang].name, lang).toBe(catalogueOf(lang).title);
+    }
+  });
+});
+
+describe("the image of the Apps grid", () => {
+  // icon.svg beside module.json and dist/, signed with the rest: the app draws it on the tile; the
+  // Ionicon in module.json stays as the fallback (2026-10-08).
+  const image = join(HERE, "icon.svg");
+
+  it("is a square 64 × 64 SVG of at most 4 KB at the root of the package, and not inside dist/", () => {
+    expect(existsSync(image), "icon.svg").toBe(true);
+    expect(statSync(image).size).toBeLessThanOrEqual(4096);
+    const svg = readFileSync(image, "utf8");
+    expect(svg.startsWith("<svg")).toBe(true);
+    expect(svg).toContain('viewBox="0 0 64 64"');
+    expect(svg).toContain('fill="#2563EB"');
+    expect(existsSync(join(HERE, "dist", "icon.svg"))).toBe(false);
   });
 });
