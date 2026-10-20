@@ -8,8 +8,9 @@
 // received message's bubble (its text, translated); `composer`, what is sent with "Send
 // translated" (the draft, in the conversation's language); and `settings`, the Translation group
 // the app draws on the contact's or circle's page (the language, told from what was received or
-// picked, and the two switches). The app runs it hidden and it never comes into view: a download
-// is a question the app asks in its alert (`ask`) before running the hook again with the answer.
+// picked, and the two switches). The app runs it hidden and it never comes into view: on Android a
+// download is a question the app asks in its alert (`ask`) before running the hook again with the
+// answer; on an iPhone iOS asks in its own sheet, so the plugin downloads without asking first.
 
 import { spareName, t } from "./i18n.js";
 
@@ -18,6 +19,10 @@ export const AUTO = "auto";
 
 /** The longest text the core translates: about one message (characters, not UTF-16 halves). */
 export const MAX_CHARS = 5000;
+
+/** The most lines of the texts received that the settings' hidden run tells one by one: the app
+ *  hands the last 5 texts, one per line, and a text may run over a few. */
+export const TOLD_LINES = 20;
 
 /** Whether a text is longer than the core takes. */
 export function tooLong(text) {
@@ -264,7 +269,9 @@ class Translator extends HTMLElement {
    * started on its own (`manual: false`) never says anything.
    */
   async onHook(hook) {
-    const run = { manual: hook?.manual === true };
+    // An iPhone shows its own sheet before it downloads a language (Android none): no question of
+    // the plugin's first there.
+    const run = { manual: hook?.manual === true, ios: hook?.platform === "ios" };
     try {
       this.language = hook?.lang || this.language || "en";
       if (hook?.name === "message") return await this.hookMessage(hook, run);
@@ -295,6 +302,28 @@ class Translator extends HTMLElement {
   async detectIn(text, languages) {
     const said = await call(() => globalThis.ft.translate.detect(text), null);
     return typeof said === "string" ? matchLanguage(languages, said) : null;
+  }
+
+  /**
+   * The conversation's language from the texts received, one per line (the settings' hidden run):
+   * each told on its own; the most frequent that is not the app's as soon as one text is foreign
+   * (between two as frequent, the latest text's), else the app's when the texts it can tell are
+   * all in it. Null when it can tell none.
+   */
+  async languageOfTexts(text, languages) {
+    const texts = String(text ?? "")
+      .split(/\r?\n/)
+      .filter((line) => line.trim())
+      .slice(-TOLD_LINES)
+      .map((line) => [...line].slice(0, MAX_CHARS).join(""));
+    const told = await Promise.all(texts.map((one) => this.detectIn(one, languages)));
+    const app = matchLanguage(languages, this.language);
+    // Newest first, so that the first of two as frequent is the latest.
+    const counts = new Map();
+    for (const lang of told.reverse()) if (lang && lang !== app) counts.set(lang, (counts.get(lang) ?? 0) + 1);
+    let foreign = null;
+    for (const [lang, times] of counts) if (!foreign || times > counts.get(foreign)) foreign = lang;
+    return foreign ?? (app && told.includes(app) ? app : null);
   }
 
   /** The line under a held message: detect → status → (download, in view, once the user says so)
@@ -333,15 +362,15 @@ class Translator extends HTMLElement {
    * The Translation group of the contact's or circle's page. The hidden run (`manual: false`) tells
    * the conversation's language from the last texts received when nothing is kept for it; a run
    * after a change (`manual: true`) keeps the changed values, once the languages a switch needs are
-   * on the phone (`ask`, then `answer: true`). Either way it answers the whole group.
+   * on the phone (`ask`, then `answer: true`; on an iPhone, at once, iOS asking in its own sheet).
+   * Either way it answers the whole group.
    */
   async hookSettings(hook, run) {
     const languages = await this.loadLanguages();
     const kept = await readChat(hook.chat);
     if (!run.manual) {
       if (kept || languages.length === 0) return this.settingsOf(kept);
-      const text = [...String(hook.text ?? "")].slice(0, MAX_CHARS).join("");
-      const lang = text.trim() ? await this.detectIn(text, languages) : null;
+      const lang = await this.languageOfTexts(hook.text, languages);
       if (!lang) return this.settingsOf(null);
       const told = { lang, ...OFF, detected: true };
       await writeChat(hook.chat, told);
@@ -370,7 +399,7 @@ class Translator extends HTMLElement {
       return this.settingsOf(kept);
     }
     if (states.includes("downloadable")) {
-      if (hook.answer !== true) return { ask: { text: this.words("downloadAsk", { language: languageWord(next.lang, this.language) }) } };
+      if (hook.answer !== true && !run.ios) return { ask: { text: this.words("downloadAsk", { language: languageWord(next.lang, this.language) }) } };
       for (const [from, to] of pairs) {
         const state = await call(() => translator.status(from, to), "unsupported");
         if (state === "downloadable" && (await call(() => translator.prepare(from, to), false)) !== true) {
@@ -403,9 +432,9 @@ class Translator extends HTMLElement {
     };
   }
 
-  /** status → (a download the app asks about, then a second run with the answer) → translate.
-   *  `{ text }`, `{ ask }` or null. The question names the `foreign` language: the message's, or
-   *  the chat's for a draft. */
+  /** status → (a download the app asks about, then a second run with the answer; on an iPhone,
+   *  the download at once, iOS asking in its own sheet) → translate. `{ text }`, `{ ask }` or
+   *  null. The question names the `foreign` language: the message's, or the chat's for a draft. */
   async translateFor(hook, run, text, { from, to, foreign, asks }) {
     const translator = globalThis.ft.translate;
     const state = await call(() => translator.status(from, to), "unsupported");
@@ -413,7 +442,7 @@ class Translator extends HTMLElement {
     if (state === "downloadable") {
       if (hook.answer !== true) {
         if (!asks) return null;
-        return { ask: { text: this.words("downloadAsk", { language: languageWord(foreign, this.language) }) } };
+        if (!run.ios) return { ask: { text: this.words("downloadAsk", { language: languageWord(foreign, this.language) }) } };
       }
       const ready = await call(() => translator.prepare(from, to), false);
       if (ready !== true) return this.tell(run, "noDownload");

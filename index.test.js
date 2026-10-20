@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTO, MAX_CHARS, defaultTarget, languageName, languageWord, matchLanguage, sortLanguages, swapped, tooLong } from "./dist/index.js";
+import { AUTO, MAX_CHARS, TOLD_LINES, defaultTarget, languageName, languageWord, matchLanguage, sortLanguages, swapped, tooLong } from "./dist/index.js";
 import { LANGUAGES, catalogueOf, t } from "./dist/i18n.js";
 
 const HERE = import.meta.dirname;
@@ -271,12 +271,14 @@ describe("the manifest", () => {
   // in module.schema.json): Translate in a received message's bubble, what is sent with "Send
   // translated", and the Translation group on the contact's or circle's page. This window stays.
   // 1.1.1 (2026-10-21): it names the languages Android's WebView cannot name.
+  // 1.1.2 (2026-10-21): on an iPhone it downloads without asking first, and it tells a
+  // conversation's language text by text.
   it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
     const { locales, ...rest } = manifest;
     expect(rest).toEqual({
       id: "com.flickertalk.translate",
       name: "Translator",
-      version: "1.1.1",
+      version: "1.1.2",
       icon: "language-outline",
       minCoreVersion: "1.7.0",
       components: ["ft-translate"],
@@ -886,6 +888,40 @@ describe("the plugin", () => {
       expect(document.querySelector("ion-alert")).toBeNull();
     });
 
+    // Device QA (2026-10-21): an iPhone shows its own sheet before a download, so there the plugin
+    // asks nothing first (two questions in a row otherwise); Android shows none, so it asks.
+    it("on an iPhone, downloads a held message's language without asking first, as iOS asks itself", async () => {
+      expect(await core.hook({ name: "message", text: "Guten Morgen", lang: "es", platform: "ios" })).toEqual({ text: "[de→es] Guten Morgen" });
+      expect(core.ft.translate.prepare).toHaveBeenCalledWith("de", "es");
+      expect(core.ft.show).not.toHaveBeenCalled();
+      expect(document.querySelector("ion-alert")).toBeNull();
+    });
+
+    it("on an iPhone, still never downloads on its own for a message that arrives", async () => {
+      expect(await core.hook({ name: "message", text: "Guten Morgen", lang: "es", manual: false, platform: "ios" })).toBeNull();
+      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+      expect(core.ft.notify).not.toHaveBeenCalled();
+    });
+
+    it("on an iPhone, downloads for a draft and for a switch without asking first", async () => {
+      keepFor(CHAT, { lang: "fr", message: false, composer: true });
+      expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "en", manual: false, platform: "ios" })).toEqual({ text: "[en→fr] Hello, see you tomorrow" });
+      expect(core.ft.translate.prepare).toHaveBeenCalledWith("en", "fr");
+      core.kept.delete("fr");
+      core.ft.translate.prepare.mockClear();
+      const answer = await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "en", platform: "ios" });
+      expect(answer).toMatchObject({ values: { lang: "fr", receive: true, send: true }, auto: { message: true, composer: true } });
+      expect(core.ft.translate.prepare).toHaveBeenCalledWith("fr", "en");
+      expect(keptFor(CHAT)).toMatchObject({ lang: "fr", message: true, composer: true });
+    });
+
+    it("on Android, asks before a download, as nothing else does", async () => {
+      expect(await core.hook({ name: "message", text: "Guten Morgen", lang: "en", platform: "android" })).toEqual({ ask: { text: "Download German? About 30 MB, once." } });
+      keepFor(CHAT, { lang: "fr", message: false, composer: false });
+      expect(await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "en", platform: "android" })).toEqual({ ask: { text: "Download French? About 30 MB, once." } });
+      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+    });
+
     it("says it could not tell the language only when asked", async () => {
       expect(await core.hook({ name: "message", text: "Ciao a tutti" })).toBeNull();
       expect(core.ft.notify).toHaveBeenCalledWith("Could not tell the language of this text.");
@@ -976,6 +1012,28 @@ describe("the plugin", () => {
       expect(document.querySelector("ion-alert")).toBeNull();
     });
 
+    // Device QA (2026-10-21): each text received is told on its own, and a foreign one wins over the
+    // app's language however few, or a conversation in two languages would look like the user's own.
+    it("tells each text received on its own, and takes the most frequent language that is not the app's", async () => {
+      expect((await core.hook({ name: "settings", manual: false, text: "Guten Morgen\nBonjour\nHola\nBonjour", lang: "es" })).lang).toBe("fr");
+      expect(core.ft.translate.detect.mock.calls.map(([text]) => text)).toEqual(["Guten Morgen", "Bonjour", "Hola", "Bonjour"]);
+      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: false, composer: false, detected: true });
+    });
+
+    it("takes a foreign language even when most texts are in the app's", async () => {
+      expect((await core.hook({ name: "settings", manual: false, text: "Hola\nHola, ¿qué tal?\nHello\nHola", lang: "es" })).lang).toBe("en");
+    });
+
+    it("takes the latest text's language between two as frequent", async () => {
+      expect((await core.hook({ name: "settings", manual: false, text: "Guten Morgen\nHola\nBonjour", lang: "es" })).lang).toBe("fr");
+    });
+
+    it("answers the app's language only when every text it can tell is in it", async () => {
+      expect((await core.hook({ name: "settings", manual: false, text: "Hola\nCiao a tutti\n\nHola, ¿qué tal?", lang: "es" })).lang).toBe("es");
+      expect(keptFor(CHAT)).toEqual({ lang: "es", message: false, composer: false, detected: true });
+      expect(core.ft.translate.detect).toHaveBeenCalledTimes(3);
+    });
+
     it("answers what the conversation has without telling its language again", async () => {
       keepFor(CHAT, { lang: "fr", message: true, composer: false, detected: false });
       expect(await core.hook({ name: "settings", manual: false, text: "Guten Morgen", lang: "es" })).toEqual({
@@ -994,6 +1052,13 @@ describe("the plugin", () => {
       expect(keptFor(CHAT)).toBeUndefined();
       expect((await core.hook({ name: "settings", manual: false, text: "Guten Morgen\n".repeat(500), lang: "es" })).lang).toBe("de");
       expect([...core.ft.translate.detect.mock.calls.at(-1)[0]].length).toBeLessThanOrEqual(5000);
+    });
+
+    it("tells at most the latest 20 lines, each of at most 5 000 characters", async () => {
+      const texts = [...Array(30).fill("Hola"), `Guten ${"Morgen ".repeat(1000)}`];
+      expect((await core.hook({ name: "settings", manual: false, text: texts.join("\n"), lang: "es" })).lang).toBe("de");
+      expect(core.ft.translate.detect).toHaveBeenCalledTimes(TOLD_LINES);
+      expect(Math.max(...core.ft.translate.detect.mock.calls.map(([text]) => [...text].length))).toBe(MAX_CHARS);
     });
 
     it("keeps the language the user picks, and asks nothing when no switch needs a download", async () => {

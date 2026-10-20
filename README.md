@@ -13,13 +13,16 @@ their hooks (`hooks` in `module.json`). The chat itself looks as it always does:
   opens. A message already in your language says so.
 - **Translation** on the contact's page (or the circle's): the conversation's **Language**, told on
   its own from the last messages you received there ("French (detected)") or chosen by you, or
-  *None*; **Translate what I receive** (each message arrives translated, with *See original*); and
-  **Send translated** (what you write goes in the conversation's language when you press send).
+  *None*. Each message is told on its own, and a language that is not yours wins as soon as one of
+  them is in it (the most frequent of them, if there are several). Then **Translate what I
+  receive** (each message arrives translated, with *See original*) and **Send translated** (what
+  you write goes in the conversation's language when you press send).
   If a language is not on the phone yet, it asks before downloading it.
 
-When a language is not on the phone yet, the app asks "Download German? About 30 MB, once." and
-the Translator goes ahead only on yes. It never opens a window for any of this, and nothing is
-translated outside the conversation you have open.
+When a language is not on the phone yet, on Android the app asks "Download German? About 30 MB,
+once." and the Translator goes ahead only on yes; on iPhone, iOS asks in its own sheet, with nothing
+asked before it. It never opens a window for any of this, and nothing is translated outside the
+conversation you have open.
 
 ## Its own window
 
