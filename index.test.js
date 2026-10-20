@@ -204,9 +204,9 @@ describe("the manifest", () => {
   const LOCALES = ["es", "pt", "fr", "de", "it", "ro", "ru", "uk", "pl", "tr", "ar", "hi", "bn", "id", "vi", "th", "ja", "ko", "zh-CN", "zh-TW"];
   const codePoints = (text) => [...text].length;
 
-  // 1.1.0 (2026-10-20, translation in the chat): installing the tool switches on, in every chat,
-  // a Translate link under received messages and a translate button in the composer
-  // (plugin-sdk, `provides` in module.schema.json). The app does that itself; this window stays.
+  // 1.1.0 (2026-10-20, chat hooks): the tool binds to the chat's hooks (plugin-sdk, `hooks` in
+  // module.schema.json): Translate on a held message and in the composer, and the chat's language
+  // in the chat's options. The app runs it there; this window stays for any text.
   it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
     const { locales, ...rest } = manifest;
     expect(rest).toEqual({
@@ -218,7 +218,11 @@ describe("the manifest", () => {
       components: ["ft-translate"],
       permissions: { messages: "given", translate: true, send: "propose", storage: "small" },
       opens: ["text/plain"],
-      provides: ["translate"],
+      hooks: {
+        message: { label: "Translate", icon: "language-outline" },
+        composer: { label: "Translate", icon: "language-outline" },
+        chat: { label: "Chat language", icon: "language-outline" },
+      },
       summary: "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
     });
     expect(locales).toBeTypeOf("object");
@@ -227,17 +231,33 @@ describe("the manifest", () => {
 
   it("names and sums up the plugin in the 20 other languages of the app, within the SDK's limits", () => {
     expect(Object.keys(manifest.locales ?? {})).toEqual(LOCALES);
-    expect(manifest.locales.es).toEqual({
+    // The hooks' labels sit beside them (next test).
+    expect((({ hooks, ...rest }) => rest)(manifest.locales.es)).toEqual({
       name: "Traductor",
       summary: "Traduce un mensaje o tu borrador en el teléfono. Los paquetes de idioma se descargan una vez de Apple o Google; el texto nunca sale del teléfono.",
     });
     for (const lang of LOCALES) {
       const { name, summary } = manifest.locales[lang];
-      expect(Object.keys(manifest.locales[lang]).sort(), lang).toEqual(["name", "summary"]);
+      expect(Object.keys(manifest.locales[lang]).sort(), lang).toEqual(["hooks", "name", "summary"]);
       expect(codePoints(summary.trim()), lang).toBeGreaterThan(0);
       expect(codePoints(summary), lang).toBeLessThanOrEqual(200);
       expect(codePoints(name.trim()), lang).toBeGreaterThan(0);
       expect(codePoints(name), lang).toBeLessThanOrEqual(64);
+    }
+  });
+
+  it("labels its hooks in the 20 other languages of the app, within the SDK's limits", () => {
+    expect(manifest.locales.es.hooks).toEqual({ message: "Traducir", composer: "Traducir", chat: "Idioma del chat" });
+    for (const lang of LOCALES) {
+      const { hooks } = manifest.locales[lang];
+      expect(Object.keys(hooks), lang).toEqual(["message", "composer", "chat"]);
+      for (const label of Object.values(hooks)) {
+        expect(codePoints(label.trim()), lang).toBeGreaterThan(0);
+        expect(codePoints(label), lang).toBeLessThanOrEqual(64);
+      }
+      // The button says what the plugin's own button says.
+      expect(hooks.message, lang).toBe(catalogueOf(lang).translate);
+      expect(hooks.composer, lang).toBe(catalogueOf(lang).translate);
     }
   });
 

@@ -16,90 +16,201 @@
   "opens": [
     "text/plain"
   ],
-  "provides": [
-    "translate"
-  ],
+  "hooks": {
+    "message": {
+      "label": "Translate",
+      "icon": "language-outline"
+    },
+    "composer": {
+      "label": "Translate",
+      "icon": "language-outline"
+    },
+    "chat": {
+      "label": "Chat language",
+      "icon": "language-outline"
+    }
+  },
   "summary": "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
   "locales": {
     "es": {
       "name": "Traductor",
-      "summary": "Traduce un mensaje o tu borrador en el teléfono. Los paquetes de idioma se descargan una vez de Apple o Google; el texto nunca sale del teléfono."
+      "summary": "Traduce un mensaje o tu borrador en el teléfono. Los paquetes de idioma se descargan una vez de Apple o Google; el texto nunca sale del teléfono.",
+      "hooks": {
+        "message": "Traducir",
+        "composer": "Traducir",
+        "chat": "Idioma del chat"
+      }
     },
     "pt": {
       "name": "Tradutor",
-      "summary": "Traduz uma mensagem ou o seu rascunho no telefone. Os pacotes de idioma são baixados uma vez da Apple ou do Google; o texto nunca sai do telefone."
+      "summary": "Traduz uma mensagem ou o seu rascunho no telefone. Os pacotes de idioma são baixados uma vez da Apple ou do Google; o texto nunca sai do telefone.",
+      "hooks": {
+        "message": "Traduzir",
+        "composer": "Traduzir",
+        "chat": "Idioma do chat"
+      }
     },
     "fr": {
       "name": "Traducteur",
-      "summary": "Traduit un message ou votre brouillon sur le téléphone. Les packs de langue sont téléchargés une fois depuis Apple ou Google ; le texte ne quitte jamais le téléphone."
+      "summary": "Traduit un message ou votre brouillon sur le téléphone. Les packs de langue sont téléchargés une fois depuis Apple ou Google ; le texte ne quitte jamais le téléphone.",
+      "hooks": {
+        "message": "Traduire",
+        "composer": "Traduire",
+        "chat": "Langue de la discussion"
+      }
     },
     "de": {
       "name": "Übersetzer",
-      "summary": "Übersetzt eine Nachricht oder deinen Entwurf auf dem Telefon. Sprachpakete werden einmal von Apple oder Google geladen; der Text verlässt das Telefon nie."
+      "summary": "Übersetzt eine Nachricht oder deinen Entwurf auf dem Telefon. Sprachpakete werden einmal von Apple oder Google geladen; der Text verlässt das Telefon nie.",
+      "hooks": {
+        "message": "Übersetzen",
+        "composer": "Übersetzen",
+        "chat": "Chatsprache"
+      }
     },
     "it": {
       "name": "Traduttore",
-      "summary": "Traduce un messaggio o la tua bozza sul telefono. I pacchetti di lingua si scaricano una volta da Apple o Google; il testo non lascia mai il telefono."
+      "summary": "Traduce un messaggio o la tua bozza sul telefono. I pacchetti di lingua si scaricano una volta da Apple o Google; il testo non lascia mai il telefono.",
+      "hooks": {
+        "message": "Traduci",
+        "composer": "Traduci",
+        "chat": "Lingua della chat"
+      }
     },
     "ro": {
       "name": "Traducător",
-      "summary": "Traduce un mesaj sau ciorna ta pe telefon. Pachetele de limbă se descarcă o singură dată de la Apple sau Google; textul nu părăsește niciodată telefonul."
+      "summary": "Traduce un mesaj sau ciorna ta pe telefon. Pachetele de limbă se descarcă o singură dată de la Apple sau Google; textul nu părăsește niciodată telefonul.",
+      "hooks": {
+        "message": "Tradu",
+        "composer": "Tradu",
+        "chat": "Limba conversației"
+      }
     },
     "ru": {
       "name": "Переводчик",
-      "summary": "Переводит сообщение или ваш черновик на телефоне. Языковые пакеты загружаются один раз от Apple или Google; текст никогда не покидает телефон."
+      "summary": "Переводит сообщение или ваш черновик на телефоне. Языковые пакеты загружаются один раз от Apple или Google; текст никогда не покидает телефон.",
+      "hooks": {
+        "message": "Перевести",
+        "composer": "Перевести",
+        "chat": "Язык чата"
+      }
     },
     "uk": {
       "name": "Перекладач",
-      "summary": "Перекладає повідомлення або вашу чернетку на телефоні. Мовні пакети завантажуються один раз від Apple або Google; текст ніколи не залишає телефон."
+      "summary": "Перекладає повідомлення або вашу чернетку на телефоні. Мовні пакети завантажуються один раз від Apple або Google; текст ніколи не залишає телефон.",
+      "hooks": {
+        "message": "Перекласти",
+        "composer": "Перекласти",
+        "chat": "Мова чату"
+      }
     },
     "pl": {
       "name": "Tłumacz",
-      "summary": "Tłumaczy wiadomość lub twój szkic na telefonie. Pakiety językowe pobiera się raz od Apple lub Google; tekst nigdy nie opuszcza telefonu."
+      "summary": "Tłumaczy wiadomość lub twój szkic na telefonie. Pakiety językowe pobiera się raz od Apple lub Google; tekst nigdy nie opuszcza telefonu.",
+      "hooks": {
+        "message": "Przetłumacz",
+        "composer": "Przetłumacz",
+        "chat": "Język czatu"
+      }
     },
     "tr": {
       "name": "Çevirmen",
-      "summary": "Bir mesajı veya taslağınızı telefonda çevirir. Dil paketleri Apple'dan veya Google'dan bir kez indirilir; metin telefondan asla çıkmaz."
+      "summary": "Bir mesajı veya taslağınızı telefonda çevirir. Dil paketleri Apple'dan veya Google'dan bir kez indirilir; metin telefondan asla çıkmaz.",
+      "hooks": {
+        "message": "Çevir",
+        "composer": "Çevir",
+        "chat": "Sohbet dili"
+      }
     },
     "ar": {
       "name": "المترجم",
-      "summary": "يترجم رسالة أو مسودتك على الهاتف. تُنزَّل حزم اللغات مرة واحدة من Apple أو Google؛ ولا يغادر النص الهاتف أبدًا."
+      "summary": "يترجم رسالة أو مسودتك على الهاتف. تُنزَّل حزم اللغات مرة واحدة من Apple أو Google؛ ولا يغادر النص الهاتف أبدًا.",
+      "hooks": {
+        "message": "ترجمة",
+        "composer": "ترجمة",
+        "chat": "لغة المحادثة"
+      }
     },
     "hi": {
       "name": "अनुवादक",
-      "summary": "किसी संदेश या आपके ड्राफ़्ट का अनुवाद फ़ोन पर ही करता है। भाषा पैक Apple या Google से एक बार डाउनलोड होते हैं; टेक्स्ट कभी फ़ोन से बाहर नहीं जाता।"
+      "summary": "किसी संदेश या आपके ड्राफ़्ट का अनुवाद फ़ोन पर ही करता है। भाषा पैक Apple या Google से एक बार डाउनलोड होते हैं; टेक्स्ट कभी फ़ोन से बाहर नहीं जाता।",
+      "hooks": {
+        "message": "अनुवाद करें",
+        "composer": "अनुवाद करें",
+        "chat": "चैट की भाषा"
+      }
     },
     "bn": {
       "name": "অনুবাদক",
-      "summary": "কোনো মেসেজ বা আপনার খসড়া ফোনেই অনুবাদ করে। ভাষার প্যাক Apple বা Google থেকে একবার ডাউনলোড হয়; লেখা কখনো ফোনের বাইরে যায় না।"
+      "summary": "কোনো মেসেজ বা আপনার খসড়া ফোনেই অনুবাদ করে। ভাষার প্যাক Apple বা Google থেকে একবার ডাউনলোড হয়; লেখা কখনো ফোনের বাইরে যায় না।",
+      "hooks": {
+        "message": "অনুবাদ করুন",
+        "composer": "অনুবাদ করুন",
+        "chat": "চ্যাটের ভাষা"
+      }
     },
     "id": {
       "name": "Penerjemah",
-      "summary": "Menerjemahkan pesan atau draf Anda di ponsel. Paket bahasa diunduh sekali dari Apple atau Google; teks tidak pernah keluar dari ponsel."
+      "summary": "Menerjemahkan pesan atau draf Anda di ponsel. Paket bahasa diunduh sekali dari Apple atau Google; teks tidak pernah keluar dari ponsel.",
+      "hooks": {
+        "message": "Terjemahkan",
+        "composer": "Terjemahkan",
+        "chat": "Bahasa obrolan"
+      }
     },
     "vi": {
       "name": "Trình dịch",
-      "summary": "Dịch một tin nhắn hoặc bản nháp của bạn ngay trên điện thoại. Gói ngôn ngữ được tải một lần từ Apple hoặc Google; văn bản không bao giờ rời khỏi điện thoại."
+      "summary": "Dịch một tin nhắn hoặc bản nháp của bạn ngay trên điện thoại. Gói ngôn ngữ được tải một lần từ Apple hoặc Google; văn bản không bao giờ rời khỏi điện thoại.",
+      "hooks": {
+        "message": "Dịch",
+        "composer": "Dịch",
+        "chat": "Ngôn ngữ cuộc trò chuyện"
+      }
     },
     "th": {
       "name": "แปลภาษา",
-      "summary": "แปลข้อความหรือร่างของคุณบนโทรศัพท์ ชุดภาษาดาวน์โหลดครั้งเดียวจาก Apple หรือ Google และข้อความไม่เคยออกจากโทรศัพท์"
+      "summary": "แปลข้อความหรือร่างของคุณบนโทรศัพท์ ชุดภาษาดาวน์โหลดครั้งเดียวจาก Apple หรือ Google และข้อความไม่เคยออกจากโทรศัพท์",
+      "hooks": {
+        "message": "แปล",
+        "composer": "แปล",
+        "chat": "ภาษาของแชท"
+      }
     },
     "ja": {
       "name": "翻訳",
-      "summary": "メッセージや下書きを端末上で翻訳します。言語パックは Apple または Google から一度だけダウンロードされ、テキストが端末の外に出ることはありません。"
+      "summary": "メッセージや下書きを端末上で翻訳します。言語パックは Apple または Google から一度だけダウンロードされ、テキストが端末の外に出ることはありません。",
+      "hooks": {
+        "message": "翻訳",
+        "composer": "翻訳",
+        "chat": "チャットの言語"
+      }
     },
     "ko": {
       "name": "번역기",
-      "summary": "메시지나 작성 중인 글을 휴대폰에서 번역합니다. 언어 팩은 Apple 또는 Google에서 한 번만 다운로드되며, 텍스트는 휴대폰 밖으로 나가지 않습니다."
+      "summary": "메시지나 작성 중인 글을 휴대폰에서 번역합니다. 언어 팩은 Apple 또는 Google에서 한 번만 다운로드되며, 텍스트는 휴대폰 밖으로 나가지 않습니다.",
+      "hooks": {
+        "message": "번역",
+        "composer": "번역",
+        "chat": "채팅 언어"
+      }
     },
     "zh-CN": {
       "name": "翻译",
-      "summary": "在手机上翻译消息或你的草稿。语言包只需从 Apple 或 Google 下载一次；文本永远不会离开手机。"
+      "summary": "在手机上翻译消息或你的草稿。语言包只需从 Apple 或 Google 下载一次；文本永远不会离开手机。",
+      "hooks": {
+        "message": "翻译",
+        "composer": "翻译",
+        "chat": "聊天语言"
+      }
     },
     "zh-TW": {
       "name": "翻譯",
-      "summary": "在手機上翻譯訊息或你的草稿。語言包只需從 Apple 或 Google 下載一次；文字永遠不會離開手機。"
+      "summary": "在手機上翻譯訊息或你的草稿。語言包只需從 Apple 或 Google 下載一次；文字永遠不會離開手機。",
+      "hooks": {
+        "message": "翻譯",
+        "composer": "翻譯",
+        "chat": "聊天語言"
+      }
     }
   }
 }
