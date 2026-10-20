@@ -186,12 +186,11 @@ describe("the catalogue", () => {
     for (const lang of LANGUAGES) expect(catalogueOf(lang).downloadText, lang).toContain("30");
   });
 
-  it("names the chat's language as the manifest's hook does, and tells the download's size, in every language", () => {
-    for (const lang of LANGUAGES.filter((one) => one !== "en")) {
-      expect(catalogueOf(lang).chatLanguage, lang).toBe(manifest.locales[lang].hooks.chat);
-    }
-    expect(catalogueOf("en").chatLanguage).toBe(manifest.hooks.chat.label);
-    for (const lang of LANGUAGES) expect(catalogueOf(lang).chatNote, lang).toContain("30");
+  it("labels the settings as the manifest does, and tells the download's size, in every language", () => {
+    const { settings } = manifest.hooks;
+    expect(catalogueOf("en").translation).toBe(settings.label);
+    expect([catalogueOf("en").language, catalogueOf("en").autoReceive, catalogueOf("en").sendTranslated]).toEqual(settings.fields.map((one) => one.label));
+    expect(catalogueOf("en").settingsNote).toBe(settings.note);
     for (const lang of LANGUAGES) expect(catalogueOf(lang).downloadAsk, lang).toContain("30");
   });
 
@@ -213,9 +212,9 @@ describe("the manifest", () => {
   const LOCALES = ["es", "pt", "fr", "de", "it", "ro", "ru", "uk", "pl", "tr", "ar", "hi", "bn", "id", "vi", "th", "ja", "ko", "zh-CN", "zh-TW"];
   const codePoints = (text) => [...text].length;
 
-  // 1.1.0 (2026-10-20, chat hooks): the tool binds to the chat's hooks (plugin-sdk, `hooks` in
-  // module.schema.json): Translate on a held message and in the composer, and the chat's language
-  // in the chat's options. The app runs it there; this window stays for any text.
+  // 1.1.0 (2026-10-20, plan §8.2d): the tool binds to the conversation's hooks (plugin-sdk, `hooks`
+  // in module.schema.json): Translate in a received message's bubble, what is sent with "Send
+  // translated", and the Translation group on the contact's or circle's page. This window stays.
   it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
     const { locales, ...rest } = manifest;
     expect(rest).toEqual({
@@ -230,7 +229,16 @@ describe("the manifest", () => {
       hooks: {
         message: { label: "Translate", icon: "language-outline" },
         composer: { label: "Translate", icon: "language-outline" },
-        chat: { label: "Chat language", icon: "language-outline" },
+        settings: {
+          label: "Translation",
+          icon: "language-outline",
+          fields: [
+            { key: "lang", type: "select", label: "Language" },
+            { key: "receive", type: "toggle", label: "Translate what I receive" },
+            { key: "send", type: "toggle", label: "Send translated" },
+          ],
+          note: "Language packs are downloaded once; translation happens on the phone.",
+        },
       },
       summary: "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
     });
@@ -255,18 +263,31 @@ describe("the manifest", () => {
     }
   });
 
-  it("labels its hooks in the 20 other languages of the app, within the SDK's limits", () => {
-    expect(manifest.locales.es.hooks).toEqual({ message: "Traducir", composer: "Traducir", chat: "Idioma del chat" });
+  it("labels its hooks and its settings in the 20 other languages of the app, within the SDK's limits", () => {
+    expect(manifest.locales.es.hooks).toEqual({
+      message: "Traducir",
+      composer: "Traducir",
+      settings: {
+        label: "Traducción",
+        fields: { lang: "Idioma", receive: "Traducir lo que recibo", send: "Enviar traducido" },
+        note: "Los paquetes de idioma se descargan una vez; la traducción se hace en el teléfono.",
+      },
+    });
     for (const lang of LOCALES) {
       const { hooks } = manifest.locales[lang];
-      expect(Object.keys(hooks), lang).toEqual(["message", "composer", "chat"]);
-      for (const label of Object.values(hooks)) {
+      const words = catalogueOf(lang);
+      expect(Object.keys(hooks), lang).toEqual(["message", "composer", "settings"]);
+      // What the app shows says what the plugin's own screens say.
+      expect(hooks, lang).toEqual({
+        message: words.translate,
+        composer: words.translate,
+        settings: { label: words.translation, fields: { lang: words.language, receive: words.autoReceive, send: words.sendTranslated }, note: words.settingsNote },
+      });
+      for (const label of [hooks.message, hooks.settings.label, ...Object.values(hooks.settings.fields)]) {
         expect(codePoints(label.trim()), lang).toBeGreaterThan(0);
         expect(codePoints(label), lang).toBeLessThanOrEqual(64);
       }
-      // The button says what the plugin's own button says.
-      expect(hooks.message, lang).toBe(catalogueOf(lang).translate);
-      expect(hooks.composer, lang).toBe(catalogueOf(lang).translate);
+      expect(codePoints(hooks.settings.note), lang).toBeLessThanOrEqual(200);
     }
   });
 
@@ -396,13 +417,6 @@ describe("the plugin", () => {
     let one = null;
     for (let wait = 0; wait < 50 && !(one = document.querySelector("ion-toast")); wait += 1) await tick();
     return one;
-  };
-  /** What Ionic's toggle says when the user flips it. */
-  const flip = async (name, checked) => {
-    const toggle = field(name);
-    toggle.checked = checked;
-    toggle.dispatchEvent(new CustomEvent("ionChange", { bubbles: true, detail: { checked, value: toggle.value } }));
-    await settle();
   };
   /** What the plugin keeps for a chat, in its records. */
   const keptFor = (chat) => {
@@ -754,9 +768,10 @@ describe("the plugin", () => {
     expect(result().querySelector("ion-card-content [lang]").innerHTML).toBe("[de→en] Guten Morgen<br>Danke");
   });
 
-  // 2026-10-20 (app#177, chat hooks, plan §8): the app runs the Translator hidden in the chat and
-  // hands it the hook; it gives back a line under a message, a translated draft, or what to do on
-  // its own in this chat. It only comes into view (`ft.show()`) to ask the user something.
+  // 2026-10-20 (app#177, plan §8.2d): the app runs the Translator hidden in the conversation and
+  // hands it the hook; it gives back a message's text translated, the draft to send, or the
+  // Translation group of the contact's page. It never comes into view: a download is a question
+  // the app asks in its alert (`ask`) before running the hook again (`answer: true`).
   describe("in the chat's hooks", () => {
     it("registers for the chat's hooks when it loads", () => {
       expect(core.hooked()).toBe(1);
@@ -849,168 +864,141 @@ describe("the plugin", () => {
       expect(core.ft.translate.detect).not.toHaveBeenCalled();
     });
 
-    it("translates the draft into the chat's language, without coming into view", async () => {
+    it("translates the draft into the conversation's language when the user sends, without coming into view", async () => {
       core.kept.add("fr");
       keepFor(CHAT, { lang: "fr", message: true, composer: true });
       expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "es", manual: false })).toEqual({ text: "[en→fr] Hello, see you tomorrow" });
-      expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "es" })).toEqual({ text: "[en→fr] Hello, see you tomorrow" });
       expect(core.ft.show).not.toHaveBeenCalled();
     });
 
-    it("sends a draft already in the chat's language as it is, and says so when asked", async () => {
+    it("sends a draft already in the conversation's language as it is", async () => {
       keepFor(CHAT, { lang: "en", message: true, composer: true });
       expect(await core.hook({ name: "composer", text: "Hello there", lang: "es", manual: false })).toEqual({ text: "Hello there" });
-      expect(await core.hook({ name: "composer", text: "Hello there", lang: "es" })).toBeNull();
-      expect(core.ft.notify).toHaveBeenCalledWith(t("es", "same", { language: "inglés" }));
       expect(core.ft.translate.translate).not.toHaveBeenCalled();
     });
 
-    it("asks for the chat's language when there is none, keeps it, and translates into it", async () => {
-      const run = core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "es" });
-      await settle();
-      expect(core.ft.show).toHaveBeenCalledTimes(1);
-      expect(field("pickLang").getAttribute("label")).toBe(t("es", "chatLanguage"));
-      expect(optionsOf("pickLang")).toEqual([["de", "Alemán"], ["es", "Español"], ["fr", "Francés"], ["en", "Inglés"]]);
-      await pick("pickLang", "de");
-      await press("pickTranslate");
-      // German is not on the phone: the app asks, and runs the hook again on yes.
-      expect(await run).toEqual({ ask: { text: t("es", "downloadAsk", { language: "alemán" }) } });
-      expect(keptFor(CHAT)).toEqual({ lang: "de", message: false, composer: false });
-      expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "es", answer: true })).toEqual({ text: "[en→de] Hello, see you tomorrow" });
-      expect(core.ft.show).toHaveBeenCalledTimes(1);
-    });
-
-    it("hands the app the download's question for a draft too, also when sending on its own", async () => {
+    it("hands the app the download's question for a draft too", async () => {
       keepFor(CHAT, { lang: "fr", message: false, composer: true });
       expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "en", manual: false })).toEqual({ ask: { text: "Download French? About 30 MB, once." } });
       expect(core.ft.translate.prepare).not.toHaveBeenCalled();
       expect(await core.hook({ name: "composer", text: "Hello, see you tomorrow", lang: "en", manual: false, answer: true })).toEqual({ text: "[en→fr] Hello, see you tomorrow" });
       expect(core.ft.translate.prepare).toHaveBeenCalledWith("en", "fr");
-      expect(core.ft.show).not.toHaveBeenCalled();
     });
 
-    it("gives nothing when the user backs out of choosing the chat's language", async () => {
-      const run = core.hook({ name: "composer", text: "Hello", lang: "es" });
-      await settle();
-      await press("pickCancel");
-      expect(await run).toBeNull();
-      expect(keptFor(CHAT)).toBeUndefined();
-    });
-
-    it("gives nothing on its own for a chat with no language, and keeps each chat apart", async () => {
+    it("gives nothing for a draft in a conversation with no language, and never comes into view", async () => {
       keepFor(OTHER, { lang: "fr", message: true, composer: true });
+      expect(await core.hook({ name: "composer", text: "Hello", chat: CHAT, manual: false })).toBeNull();
+      expect(await core.hook({ name: "composer", text: "Hello", chat: CHAT, manual: true })).toBeNull();
+      keepFor(CHAT, { lang: "", message: false, composer: false });
       expect(await core.hook({ name: "composer", text: "Hello", chat: CHAT, manual: false })).toBeNull();
       expect(core.ft.show).not.toHaveBeenCalled();
       expect(core.ft.translate.translate).not.toHaveBeenCalled();
+      expect(field("pickLang")).toBeNull();
     });
 
-    it("sets the chat's language in Ionic's list, with both switches on once a language is chosen", async () => {
-      const run = core.hook({ name: "chat", lang: "en" });
-      await settle();
-      expect(core.ft.show).toHaveBeenCalled();
-      const list = element.querySelector(":scope > ion-content > ion-list");
-      expect(list.querySelector("ion-item > ion-select[data-field='chatLang']").getAttribute("label")).toBe("Chat language");
-      expect(optionsOf("chatLang")[0]).toEqual(["", "None"]);
-      expect(field("chatLang").value).toBe("");
-      expect(list.querySelector("ion-item > ion-toggle[data-field='autoMessage']").textContent).toBe("Translate what I receive");
-      expect(list.querySelector("ion-item > ion-toggle[data-field='autoComposer']").textContent).toBe("Translate what I send");
-      expect(field("autoMessage").checked).toBe(false);
-      expect(field("autoMessage").disabled).toBe(true);
-      expect(element.querySelector(":scope > ion-content").textContent).toContain("30 MB");
-      // Nothing to translate here: the standalone window's text is not drawn.
-      expect(field("text")).toBeNull();
+    // The Translation group the app draws on the contact's or circle's page (F1 of the mockup).
+    const none = { value: "", label: "Ninguno" };
+    const optionsEs = (detected) => [
+      none,
+      { value: "de", label: detected === "de" ? "Alemán (detectado)" : "Alemán" },
+      { value: "es", label: "Español" },
+      { value: "fr", label: detected === "fr" ? "Francés (detectado)" : "Francés" },
+      { value: "en", label: "Inglés" },
+    ];
 
-      await pick("chatLang", "fr");
-      expect(field("autoMessage").checked).toBe(true);
-      expect(field("autoComposer").checked).toBe(true);
-      expect(field("autoMessage").disabled).toBe(false);
-      const save = element.querySelector(':scope > ion-footer > ion-toolbar > ion-buttons > ion-button[data-act="chatSave"]');
-      expect(save.getAttribute("fill")).toBe("solid");
-      expect(save.querySelector("ion-icon[slot='start']")).not.toBeNull();
-      await press("chatSave");
-      await answer("confirm");
-      expect(core.ft.translate.prepare).toHaveBeenCalledWith("fr", "en");
-      expect(await run).toEqual({ lang: "fr", auto: { message: true, composer: true } });
-      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: true, composer: true });
-    });
-
-    it("shows what the chat has, and saves a switch turned off", async () => {
-      keepFor(CHAT, { lang: "es", message: true, composer: true });
-      const run = core.hook({ name: "chat", lang: "en" });
-      await settle();
-      expect(field("chatLang").value).toBe("es");
-      expect(field("autoComposer").checked).toBe(true);
-      await flip("autoComposer", false);
-      await press("chatSave");
-      expect(await run).toEqual({ lang: "es", auto: { message: true, composer: false } });
-      expect(keptFor(CHAT)).toEqual({ lang: "es", message: true, composer: false });
-      // English and Spanish are on the phone already: nothing to download.
-      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
-    });
-
-    it("keeps nothing when the user does not want the chat's language downloaded", async () => {
-      const run = core.hook({ name: "chat", lang: "en" });
-      let done = false;
-      run.then(() => (done = true));
-      await settle();
-      await pick("chatLang", "de");
-      await press("chatSave");
-      await answer("cancel");
-      expect(done).toBe(false);
-      expect(keptFor(CHAT)).toBeUndefined();
-      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
-    });
-
-    it("removes the chat's language and turns both off", async () => {
-      keepFor(CHAT, { lang: "fr", message: true, composer: true });
-      const run = core.hook({ name: "chat", lang: "en" });
-      await settle();
-      await press("chatRemove");
-      expect(await run).toEqual({ lang: null, auto: { message: false, composer: false } });
-      expect(keptFor(CHAT)).toBeUndefined();
-    });
-
-    it("draws the chat's settings when the app opens the window for the chat hook", async () => {
-      keepFor(CHAT, { lang: "fr", message: true, composer: false });
-      await core.open({ hook: "chat", chat: CHAT, lang: "es" });
-      expect(field("chatLang").value).toBe("fr");
-      expect(field("autoComposer").checked).toBe(false);
-      expect(field("text")).toBeNull();
-    });
-
-    it("keeps its hook screen when the app says which hook it is in view for", async () => {
-      const run = core.hook({ name: "composer", text: "Hello", lang: "es" });
-      await settle();
-      await core.open({ hook: "composer", chat: CHAT, lang: "es" });
-      expect(field("pickLang")).not.toBeNull();
-      expect(field("text")).toBeNull();
-      await press("pickCancel");
-      expect(await run).toBeNull();
-    });
-
-    // Plan §8.2c: a chat with no language gets one without asking, from what was received.
-    it("tells the chat's language from what was received, on its own, with no window and no download", async () => {
-      expect(await core.hook({ name: "chat", manual: false, text: "Guten Morgen\nDanke schön", lang: "es" })).toEqual({ lang: "de" });
-      expect(keptFor(CHAT)).toEqual({ lang: "de", message: false, composer: false });
+    it("tells the conversation's language from the last texts received, on the hidden run, and fills the group", async () => {
+      expect(await core.hook({ name: "settings", manual: false, text: "Guten Morgen\nDanke schön", lang: "es" })).toEqual({
+        values: { lang: "de", receive: false, send: false },
+        options: { lang: optionsEs("de") },
+        auto: { message: false, composer: false },
+        lang: "de",
+      });
+      expect(keptFor(CHAT)).toEqual({ lang: "de", message: false, composer: false, detected: true });
       expect(core.ft.show).not.toHaveBeenCalled();
       expect(core.ft.notify).not.toHaveBeenCalled();
       expect(core.ft.translate.prepare).not.toHaveBeenCalled();
       expect(document.querySelector("ion-alert")).toBeNull();
     });
 
-    it("keeps the language the user chose for the chat over the one it would tell", async () => {
-      keepFor(CHAT, { lang: "fr", message: true, composer: false });
-      expect(await core.hook({ name: "chat", manual: false, text: "Guten Morgen" })).toEqual({ lang: "fr" });
+    it("answers what the conversation has without telling its language again", async () => {
+      keepFor(CHAT, { lang: "fr", message: true, composer: false, detected: false });
+      expect(await core.hook({ name: "settings", manual: false, text: "Guten Morgen", lang: "es" })).toEqual({
+        values: { lang: "fr", receive: true, send: false },
+        options: { lang: optionsEs(null) },
+        auto: { message: true, composer: false },
+        lang: "fr",
+      });
       expect(core.ft.translate.detect).not.toHaveBeenCalled();
-      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: true, composer: false });
     });
 
-    it("gives no language when it cannot tell, and tells from at most 5 000 characters", async () => {
-      expect(await core.hook({ name: "chat", manual: false, text: "Ciao a tutti" })).toBeNull();
-      expect(await core.hook({ name: "chat", manual: false, text: "" })).toBeNull();
+    it("gives the group with no language when it cannot tell, and tells from at most 5 000 characters", async () => {
+      const empty = { values: { lang: "", receive: false, send: false }, options: { lang: optionsEs(null) }, auto: { message: false, composer: false }, lang: null };
+      expect(await core.hook({ name: "settings", manual: false, text: "Ciao a tutti", lang: "es" })).toEqual(empty);
+      expect(await core.hook({ name: "settings", manual: false, text: "", lang: "es" })).toEqual(empty);
       expect(keptFor(CHAT)).toBeUndefined();
-      expect(await core.hook({ name: "chat", manual: false, text: "Guten Morgen\n".repeat(500) })).toEqual({ lang: "de" });
+      expect((await core.hook({ name: "settings", manual: false, text: "Guten Morgen\n".repeat(500), lang: "es" })).lang).toBe("de");
       expect([...core.ft.translate.detect.mock.calls.at(-1)[0]].length).toBeLessThanOrEqual(5000);
+    });
+
+    it("keeps the language the user picks, and asks nothing when no switch needs a download", async () => {
+      keepFor(CHAT, { lang: "de", message: false, composer: false, detected: true });
+      const answer = await core.hook({ name: "settings", manual: true, values: { lang: "es" }, lang: "en" });
+      expect(answer.values).toEqual({ lang: "es", receive: false, send: false });
+      expect(answer.lang).toBe("es");
+      expect(answer.options.lang.find((one) => one.value === "es").label).toBe("Spanish");
+      expect(keptFor(CHAT)).toEqual({ lang: "es", message: false, composer: false, detected: false });
+      // English and Spanish are on the phone: "Send translated" goes on at once.
+      expect(await core.hook({ name: "settings", manual: true, values: { send: true }, lang: "en" })).toMatchObject({ values: { lang: "es", receive: false, send: true }, auto: { message: false, composer: true } });
+      expect(keptFor(CHAT)).toEqual({ lang: "es", message: false, composer: true, detected: false });
+      expect(await core.hook({ name: "settings", manual: true, values: { send: false }, lang: "en" })).toMatchObject({ auto: { message: false, composer: false } });
+      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+    });
+
+    it("asks before a switch that needs a download, keeps nothing until the yes, then downloads", async () => {
+      keepFor(CHAT, { lang: "fr", message: false, composer: false, detected: true });
+      expect(await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "en" })).toEqual({ ask: { text: "Download French? About 30 MB, once." } });
+      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: false, composer: false, detected: true });
+      expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+      const answer = await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "en", answer: true });
+      expect(core.ft.translate.prepare).toHaveBeenCalledWith("fr", "en");
+      expect(answer).toMatchObject({ values: { lang: "fr", receive: true, send: false }, auto: { message: true, composer: false }, lang: "fr" });
+      expect(answer.options.lang.find((one) => one.value === "fr").label).toBe("French (detected)");
+      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: true, composer: false, detected: true });
+      expect(core.ft.show).not.toHaveBeenCalled();
+    });
+
+    it("keeps the group as it was when the download fails, and says so", async () => {
+      keepFor(CHAT, { lang: "fr", message: false, composer: false, detected: false });
+      core.ft.translate.prepare.mockResolvedValueOnce(false);
+      const answer = await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "en", answer: true });
+      expect(answer).toMatchObject({ values: { lang: "fr", receive: false, send: false }, auto: { message: false, composer: false } });
+      expect(core.ft.notify).toHaveBeenCalledWith(t("en", "noDownload"));
+      expect(keptFor(CHAT)).toEqual({ lang: "fr", message: false, composer: false, detected: false });
+    });
+
+    it("turns both switches off with no language, and keeps the user's None over what it would tell", async () => {
+      keepFor(CHAT, { lang: "fr", message: true, composer: true, detected: false });
+      expect(await core.hook({ name: "settings", manual: true, values: { lang: "" }, lang: "es" })).toEqual({
+        values: { lang: "", receive: false, send: false },
+        options: { lang: optionsEs(null) },
+        auto: { message: false, composer: false },
+        lang: null,
+      });
+      expect(await core.hook({ name: "settings", manual: true, values: { receive: true }, lang: "es" })).toMatchObject({ values: { receive: false }, lang: null });
+      expect((await core.hook({ name: "settings", manual: false, text: "Guten Morgen", lang: "es" })).lang).toBeNull();
+      expect(core.ft.translate.detect).not.toHaveBeenCalled();
+    });
+
+    it("ignores a language this phone does not translate", async () => {
+      keepFor(CHAT, { lang: "fr", message: false, composer: false, detected: false });
+      expect((await core.hook({ name: "settings", manual: true, values: { lang: "xx" }, lang: "es" })).lang).toBe("fr");
+      expect(keptFor(CHAT).lang).toBe("fr");
+    });
+
+    it("has no page of its own for the conversation any more: the app draws the settings", async () => {
+      await core.open({ hook: "settings", chat: CHAT, lang: "es" });
+      expect(element.querySelector("ion-toggle, [data-field='chatLang'], [data-field='pickLang']")).toBeNull();
+      expect(field("text")).not.toBeNull();
     });
   });
 });

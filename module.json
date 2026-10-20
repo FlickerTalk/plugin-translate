@@ -25,9 +25,27 @@
       "label": "Translate",
       "icon": "language-outline"
     },
-    "chat": {
-      "label": "Chat language",
-      "icon": "language-outline"
+    "settings": {
+      "label": "Translation",
+      "icon": "language-outline",
+      "fields": [
+        {
+          "key": "lang",
+          "type": "select",
+          "label": "Language"
+        },
+        {
+          "key": "receive",
+          "type": "toggle",
+          "label": "Translate what I receive"
+        },
+        {
+          "key": "send",
+          "type": "toggle",
+          "label": "Send translated"
+        }
+      ],
+      "note": "Language packs are downloaded once; translation happens on the phone."
     }
   },
   "summary": "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
@@ -38,7 +56,15 @@
       "hooks": {
         "message": "Traducir",
         "composer": "Traducir",
-        "chat": "Idioma del chat"
+        "settings": {
+          "label": "Traducción",
+          "fields": {
+            "lang": "Idioma",
+            "receive": "Traducir lo que recibo",
+            "send": "Enviar traducido"
+          },
+          "note": "Los paquetes de idioma se descargan una vez; la traducción se hace en el teléfono."
+        }
       }
     },
     "pt": {
@@ -47,7 +73,15 @@
       "hooks": {
         "message": "Traduzir",
         "composer": "Traduzir",
-        "chat": "Idioma do chat"
+        "settings": {
+          "label": "Tradução",
+          "fields": {
+            "lang": "Idioma",
+            "receive": "Traduzir o que recebo",
+            "send": "Enviar traduzido"
+          },
+          "note": "Os pacotes de idioma são baixados uma vez; a tradução é feita no telefone."
+        }
       }
     },
     "fr": {
@@ -56,7 +90,15 @@
       "hooks": {
         "message": "Traduire",
         "composer": "Traduire",
-        "chat": "Langue de la discussion"
+        "settings": {
+          "label": "Traduction",
+          "fields": {
+            "lang": "Langue",
+            "receive": "Traduire ce que je reçois",
+            "send": "Envoyer traduit"
+          },
+          "note": "Les packs de langue sont téléchargés une fois ; la traduction se fait sur le téléphone."
+        }
       }
     },
     "de": {
@@ -65,7 +107,15 @@
       "hooks": {
         "message": "Übersetzen",
         "composer": "Übersetzen",
-        "chat": "Chatsprache"
+        "settings": {
+          "label": "Übersetzung",
+          "fields": {
+            "lang": "Sprache",
+            "receive": "Empfangenes übersetzen",
+            "send": "Übersetzt senden"
+          },
+          "note": "Sprachpakete werden einmal geladen; die Übersetzung geschieht auf dem Telefon."
+        }
       }
     },
     "it": {
@@ -74,7 +124,15 @@
       "hooks": {
         "message": "Traduci",
         "composer": "Traduci",
-        "chat": "Lingua della chat"
+        "settings": {
+          "label": "Traduzione",
+          "fields": {
+            "lang": "Lingua",
+            "receive": "Traduci ciò che ricevo",
+            "send": "Invia tradotto"
+          },
+          "note": "I pacchetti di lingua si scaricano una volta; la traduzione avviene sul telefono."
+        }
       }
     },
     "ro": {
@@ -83,7 +141,15 @@
       "hooks": {
         "message": "Tradu",
         "composer": "Tradu",
-        "chat": "Limba conversației"
+        "settings": {
+          "label": "Traducere",
+          "fields": {
+            "lang": "Limba",
+            "receive": "Tradu ce primesc",
+            "send": "Trimite tradus"
+          },
+          "note": "Pachetele de limbă se descarcă o singură dată; traducerea se face pe telefon."
+        }
       }
     },
     "ru": {
@@ -92,7 +158,15 @@
       "hooks": {
         "message": "Перевести",
         "composer": "Перевести",
-        "chat": "Язык чата"
+        "settings": {
+          "label": "Перевод",
+          "fields": {
+            "lang": "Язык",
+            "receive": "Переводить входящие",
+            "send": "Отправлять в переводе"
+          },
+          "note": "Языковые пакеты загружаются один раз; перевод выполняется на телефоне."
+        }
       }
     },
     "uk": {
@@ -101,7 +175,15 @@
       "hooks": {
         "message": "Перекласти",
         "composer": "Перекласти",
-        "chat": "Мова чату"
+        "settings": {
+          "label": "Переклад",
+          "fields": {
+            "lang": "Мова",
+            "receive": "Перекладати вхідні",
+            "send": "Надсилати в перекладі"
+          },
+          "note": "Мовні пакети завантажуються один раз; переклад виконується на телефоні."
+        }
       }
     },
     "pl": {
@@ -110,7 +192,15 @@
       "hooks": {
         "message": "Przetłumacz",
         "composer": "Przetłumacz",
-        "chat": "Język czatu"
+        "settings": {
+          "label": "Tłumaczenie",
+          "fields": {
+            "lang": "Język",
+            "receive": "Tłumacz to, co otrzymuję",
+            "send": "Wysyłaj przetłumaczone"
+          },
+          "note": "Pakiety językowe pobiera się raz; tłumaczenie odbywa się na telefonie."
+        }
       }
     },
     "tr": {
@@ -119,7 +209,15 @@
       "hooks": {
         "message": "Çevir",
         "composer": "Çevir",
-        "chat": "Sohbet dili"
+        "settings": {
+          "label": "Çeviri",
+          "fields": {
+            "lang": "Dil",
+            "receive": "Gelenleri çevir",
+            "send": "Çevrilmiş gönder"
+          },
+          "note": "Dil paketleri bir kez indirilir; çeviri telefonda yapılır."
+        }
       }
     },
     "ar": {
@@ -128,7 +226,15 @@
       "hooks": {
         "message": "ترجمة",
         "composer": "ترجمة",
-        "chat": "لغة المحادثة"
+        "settings": {
+          "label": "الترجمة",
+          "fields": {
+            "lang": "اللغة",
+            "receive": "ترجمة ما أستلمه",
+            "send": "إرسال مترجَم"
+          },
+          "note": "تُنزَّل حزم اللغات مرة واحدة؛ وتتم الترجمة على الهاتف."
+        }
       }
     },
     "hi": {
@@ -137,7 +243,15 @@
       "hooks": {
         "message": "अनुवाद करें",
         "composer": "अनुवाद करें",
-        "chat": "चैट की भाषा"
+        "settings": {
+          "label": "अनुवाद",
+          "fields": {
+            "lang": "भाषा",
+            "receive": "मिलने वाले संदेशों का अनुवाद करें",
+            "send": "अनुवाद करके भेजें"
+          },
+          "note": "भाषा पैक एक बार डाउनलोड होते हैं; अनुवाद फ़ोन पर ही होता है।"
+        }
       }
     },
     "bn": {
@@ -146,7 +260,15 @@
       "hooks": {
         "message": "অনুবাদ করুন",
         "composer": "অনুবাদ করুন",
-        "chat": "চ্যাটের ভাষা"
+        "settings": {
+          "label": "অনুবাদ",
+          "fields": {
+            "lang": "ভাষা",
+            "receive": "যা পাই তা অনুবাদ করুন",
+            "send": "অনুবাদ করে পাঠান"
+          },
+          "note": "ভাষার প্যাক একবার ডাউনলোড হয়; অনুবাদ ফোনেই হয়।"
+        }
       }
     },
     "id": {
@@ -155,7 +277,15 @@
       "hooks": {
         "message": "Terjemahkan",
         "composer": "Terjemahkan",
-        "chat": "Bahasa obrolan"
+        "settings": {
+          "label": "Terjemahan",
+          "fields": {
+            "lang": "Bahasa",
+            "receive": "Terjemahkan yang saya terima",
+            "send": "Kirim terjemahan"
+          },
+          "note": "Paket bahasa diunduh sekali; terjemahan dilakukan di ponsel."
+        }
       }
     },
     "vi": {
@@ -164,7 +294,15 @@
       "hooks": {
         "message": "Dịch",
         "composer": "Dịch",
-        "chat": "Ngôn ngữ cuộc trò chuyện"
+        "settings": {
+          "label": "Bản dịch",
+          "fields": {
+            "lang": "Ngôn ngữ",
+            "receive": "Dịch tin nhắn nhận được",
+            "send": "Gửi bản dịch"
+          },
+          "note": "Gói ngôn ngữ được tải một lần; việc dịch diễn ra trên điện thoại."
+        }
       }
     },
     "th": {
@@ -173,7 +311,15 @@
       "hooks": {
         "message": "แปล",
         "composer": "แปล",
-        "chat": "ภาษาของแชท"
+        "settings": {
+          "label": "คำแปล",
+          "fields": {
+            "lang": "ภาษา",
+            "receive": "แปลข้อความที่ได้รับ",
+            "send": "ส่งแบบแปลแล้ว"
+          },
+          "note": "ชุดภาษาดาวน์โหลดครั้งเดียว และการแปลทำบนโทรศัพท์"
+        }
       }
     },
     "ja": {
@@ -182,7 +328,15 @@
       "hooks": {
         "message": "翻訳",
         "composer": "翻訳",
-        "chat": "チャットの言語"
+        "settings": {
+          "label": "翻訳結果",
+          "fields": {
+            "lang": "言語",
+            "receive": "受信したメッセージを翻訳",
+            "send": "翻訳して送信"
+          },
+          "note": "言語パックは一度だけダウンロードされ、翻訳は端末上で行われます。"
+        }
       }
     },
     "ko": {
@@ -191,7 +345,15 @@
       "hooks": {
         "message": "번역",
         "composer": "번역",
-        "chat": "채팅 언어"
+        "settings": {
+          "label": "번역 결과",
+          "fields": {
+            "lang": "언어",
+            "receive": "받은 메시지 번역",
+            "send": "번역해서 보내기"
+          },
+          "note": "언어 팩은 한 번만 다운로드되며, 번역은 휴대폰에서 이루어집니다."
+        }
       }
     },
     "zh-CN": {
@@ -200,7 +362,15 @@
       "hooks": {
         "message": "翻译",
         "composer": "翻译",
-        "chat": "聊天语言"
+        "settings": {
+          "label": "译文",
+          "fields": {
+            "lang": "语言",
+            "receive": "翻译收到的消息",
+            "send": "发送译文"
+          },
+          "note": "语言包只需下载一次；翻译在手机上完成。"
+        }
       }
     },
     "zh-TW": {
@@ -209,7 +379,15 @@
       "hooks": {
         "message": "翻譯",
         "composer": "翻譯",
-        "chat": "聊天語言"
+        "settings": {
+          "label": "譯文",
+          "fields": {
+            "lang": "語言",
+            "receive": "翻譯收到的訊息",
+            "send": "傳送譯文"
+          },
+          "note": "語言包只需下載一次；翻譯在手機上完成。"
+        }
       }
     }
   }
