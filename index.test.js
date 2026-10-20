@@ -43,6 +43,61 @@ describe("a language", () => {
   });
 });
 
+describe("a language the phone has no name for", () => {
+  // Android's WebView (Chrome 155 on the Lenovo, 2026-10-21) has no name for these six in any
+  // language, so the list showed "be" or "cy". The plugin names them itself, as iOS does.
+  const UNNAMED = ["be", "cy", "eo", "ga", "ht", "mt"];
+  // What ML Kit translates on that phone, as its bridge lists it.
+  const ML_KIT =
+    "af,sq,ar,be,bg,bn,ca,zh,hr,cs,da,nl,en,eo,et,fi,fr,gl,ka,de,el,gu,ht,he,hi,hu,is,id,ga,it,ja,kn,ko,lt,lv,mk,mr,ms,mt,no,fa,pl,pt,ro,ru,sk,sl,es,sv,sw,tl,ta,te,th,tr,uk,ur,vi,cy".split(",");
+  const Phone = Intl.DisplayNames;
+  let fresh;
+
+  beforeEach(async () => {
+    Intl.DisplayNames = class extends Phone {
+      of(code) {
+        return UNNAMED.includes(String(code).toLowerCase().split("-")[0]) ? undefined : super.of(code);
+      }
+    };
+    vi.resetModules();
+    fresh = await import("./dist/index.js");
+  });
+
+  afterEach(() => {
+    Intl.DisplayNames = Phone;
+  });
+
+  it("is named by the plugin in the app's language, in a list and in a sentence", () => {
+    expect(fresh.languageName("be", "es")).toBe("Bielorruso");
+    expect(fresh.languageWord("be", "es")).toBe("bielorruso");
+    expect(fresh.languageName("cy", "en")).toBe("Welsh");
+    expect(fresh.languageName("ht", "zh-TW")).toBe("海地文");
+    expect(fresh.languageName("mt", "pt-BR")).toBe("Maltês");
+    expect(fresh.languageName("ga", "!!")).toBe("Irish");
+  });
+
+  it("takes its place in the list by that name", () => {
+    expect(fresh.sortLanguages(["bg", "be", "de"], "es").map((one) => one.name)).toEqual(["Alemán", "Bielorruso", "Búlgaro"]);
+  });
+
+  it("has a name in each of the app's languages", () => {
+    for (const lang of LANGUAGES) {
+      for (const tag of UNNAMED) expect(fresh.languageName(tag, lang).trim(), `${tag} in ${lang}`).not.toMatch(new RegExp(`^(${tag})?$`));
+    }
+  });
+
+  it("leaves no tag in the list of what ML Kit translates", () => {
+    for (const lang of LANGUAGES) {
+      const raw = fresh.sortLanguages(ML_KIT, lang).filter((one) => one.name.toLowerCase() === one.tag);
+      expect(raw, lang).toEqual([]);
+    }
+  });
+
+  it("still shows the tag of a language nobody names", () => {
+    expect(fresh.languageName("xx", "es")).toBe("xx");
+  });
+});
+
 describe("matching a language to the ones this phone has", () => {
   const apple = ["en", "es", "pt", "zh-Hans", "zh-Hant"];
 
@@ -215,12 +270,13 @@ describe("the manifest", () => {
   // 1.1.0 (2026-10-20, plan §8.2d): the tool binds to the conversation's hooks (plugin-sdk, `hooks`
   // in module.schema.json): Translate in a received message's bubble, what is sent with "Send
   // translated", and the Translation group on the contact's or circle's page. This window stays.
+  // 1.1.1 (2026-10-21): it names the languages Android's WebView cannot name.
   it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
     const { locales, ...rest } = manifest;
     expect(rest).toEqual({
       id: "com.flickertalk.translate",
       name: "Translator",
-      version: "1.1.0",
+      version: "1.1.1",
       icon: "language-outline",
       minCoreVersion: "1.7.0",
       components: ["ft-translate"],

@@ -11,7 +11,7 @@
 // picked, and the two switches). The app runs it hidden and it never comes into view: a download
 // is a question the app asks in its alert (`ask`) before running the hook again with the answer.
 
-import { t } from "./i18n.js";
+import { spareName, t } from "./i18n.js";
 
 /** The "From" choice that lets the phone tell the language of the text. */
 export const AUTO = "auto";
@@ -36,14 +36,17 @@ function writtenIn(lang) {
 /** The phone's namers of languages, one per language they write in, made once each. */
 const NAMERS = new Map();
 
-/** The phone's own name for a language, in a language it can write; undefined if it has none. */
+/** The phone's own name for a language, in a language it can write; else the plugin's own for the
+ *  few some phones cannot name (`spareName`); undefined if neither has one. */
 function nameOf(tag, locale) {
+  let name;
   try {
     if (!NAMERS.has(locale)) NAMERS.set(locale, new Intl.DisplayNames([locale], { type: "language", fallback: "none" }));
-    return NAMERS.get(locale).of(tag) || undefined;
+    name = NAMERS.get(locale).of(tag) || undefined;
   } catch {
-    return undefined;
+    name = undefined;
   }
+  return name ?? spareName(locale, tag);
 }
 
 /** A language's name as the phone writes it inside a sentence of the app's language (English if

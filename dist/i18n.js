@@ -860,3 +860,38 @@ export function t(lang, key, values = {}) {
   const text = catalogueOf(lang)[key] ?? CATALOGUE.en[key] ?? key;
   return text.replace(/\{(\w+)\}/g, (whole, name) => (name in values ? String(values[name]) : whole));
 }
+
+/** Names of the languages some phones cannot name (Android's WebView has none for these six, in
+ *  any language; 2026-10-21), as CLDR writes them inside a sentence: what an iPhone shows. */
+const SPARE_NAMES = {
+  en: { be: "Belarusian", cy: "Welsh", eo: "Esperanto", ga: "Irish", ht: "Haitian Creole", mt: "Maltese" },
+  es: { be: "bielorruso", cy: "galés", eo: "esperanto", ga: "irlandés", ht: "criollo haitiano", mt: "maltés" },
+  pt: { be: "bielorrusso", cy: "galês", eo: "esperanto", ga: "irlandês", ht: "haitiano", mt: "maltês" },
+  fr: { be: "biélorusse", cy: "gallois", eo: "espéranto", ga: "irlandais", ht: "créole haïtien", mt: "maltais" },
+  de: { be: "Belarussisch", cy: "Walisisch", eo: "Esperanto", ga: "Irisch", ht: "Haiti-Kreolisch", mt: "Maltesisch" },
+  it: { be: "bielorusso", cy: "gallese", eo: "esperanto", ga: "irlandese", ht: "creolo haitiano", mt: "maltese" },
+  ro: { be: "belarusă", cy: "galeză", eo: "esperanto", ga: "irlandeză", ht: "haitiană", mt: "malteză" },
+  ru: { be: "белорусский", cy: "валлийский", eo: "эсперанто", ga: "ирландский", ht: "гаитянский", mt: "мальтийский" },
+  uk: { be: "білоруська", cy: "валлійська", eo: "есперанто", ga: "ірландська", ht: "гаїтянська креольська", mt: "мальтійська" },
+  pl: { be: "białoruski", cy: "walijski", eo: "esperanto", ga: "irlandzki", ht: "kreolski haitański", mt: "maltański" },
+  tr: { be: "Belarusça", cy: "Galce", eo: "Esperanto", ga: "İrlandaca", ht: "Haiti Kreyolu", mt: "Maltaca" },
+  ar: { be: "البيلاروسية", cy: "الويلزية", eo: "الإسبرانتو", ga: "الأيرلندية", ht: "الكريولية الهايتية", mt: "المالطية" },
+  hi: { be: "बेलारूसी", cy: "वेल्श", eo: "एस्पेरेंतो", ga: "आयरिश", ht: "हैतियाई", mt: "माल्टीज़" },
+  bn: { be: "বেলারুশীয়", cy: "ওয়েলশ", eo: "এস্পেরান্তো", ga: "আইরিশ", ht: "হাইতিয়ান ক্রেওল", mt: "মল্টীয়" },
+  id: { be: "Belarusia", cy: "Welsh", eo: "Esperanto", ga: "Irlandia", ht: "Kreol Haiti", mt: "Malta" },
+  vi: { be: "Tiếng Belarus", cy: "Tiếng Wales", eo: "Tiếng Quốc Tế Ngữ", ga: "Tiếng Ireland", ht: "Tiếng Haiti", mt: "Tiếng Malta" },
+  th: { be: "เบลารุส", cy: "เวลส์", eo: "เอสเปรันโต", ga: "ไอริช", ht: "เฮติครีโอล", mt: "มอลตา" },
+  ja: { be: "ベラルーシ語", cy: "ウェールズ語", eo: "エスペラント語", ga: "アイルランド語", ht: "ハイチ・クレオール語", mt: "マルタ語" },
+  ko: { be: "벨라루스어", cy: "웨일스어", eo: "에스페란토어", ga: "아일랜드어", ht: "아이티어", mt: "몰타어" },
+  "zh-CN": { be: "白俄罗斯语", cy: "威尔士语", eo: "世界语", ga: "爱尔兰语", ht: "海地克里奥尔语", mt: "马耳他语" },
+  "zh-TW": { be: "白俄羅斯文", cy: "威爾斯文", eo: "世界文", ga: "愛爾蘭文", ht: "海地文", mt: "馬爾他文" },
+};
+
+/** The name of a language the phone may not know, written in `lang` (exact, then its base, then
+ *  English); undefined for any other language. */
+export function spareName(lang, tag) {
+  const base = String(tag ?? "").toLowerCase().split(/[-_]/)[0];
+  const code = String(lang ?? "en");
+  const names = SPARE_NAMES[code] ?? SPARE_NAMES[code.split("-")[0]] ?? SPARE_NAMES.en;
+  return Object.hasOwn(names, base) ? names[base] : undefined;
+}
