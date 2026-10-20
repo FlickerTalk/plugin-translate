@@ -8,19 +8,22 @@ the phone. Language packs are downloaded once from Apple or Google; the text nev
 From 1.1.0 (FlickerTalk 1.7.0 or newer) the Translator works inside your chats, through the chat's
 hooks (`hooks` in `module.json`):
 
-- **Chat language** (in the chat's options): pick the language of this chat, or *None*. Two
-  switches, on as soon as a language is chosen: **Translate what I receive** (each message you get
-  while the chat is open shows its translation into your language under it) and **Translate what
-  I send** (what you write goes in the chat's language when you press send). If the languages are
-  not on the phone yet, it asks once before downloading them. **Remove** turns it all off.
-- **Translate** on a message you hold: its translation into your language shows under it and is
-  kept on the phone. A message already in your language says so.
+- **The chat's language** is told on its own: when you open a chat that has none, the Translator
+  looks at the last messages you received there and names their language, without a window or a
+  download. The icon in the chat's header opens its page to change it: the chat's language (or
+  *None*) and two switches, on as soon as a language is chosen: **Translate what I receive** (each
+  message you get while the chat is open arrives translated into your language) and **Translate
+  what I send** (what you write goes in the chat's language when you press send). If the languages
+  are not on the phone yet, it asks once before downloading them. **Remove** turns it all off.
+- **Translate** under a message you received, in a chat in another language: one tap, and the
+  translation takes the place of the text, with *See original* to go back. Nothing opens. A
+  message already in your language says so.
 - **Translate** in the composer: your draft in the chat's language replaces it, and you can go
   back to your text before sending. With no chat language yet, it asks for one first and keeps it.
 
-The app runs the Translator out of sight for this. It only comes into view to ask you something:
-whether to download a language, or which language the chat is in. Nothing is translated outside
-the chat you have open.
+When a language is not on the phone yet, the app asks "Download German? About 30 MB, once." and
+the Translator goes ahead only on yes. It comes into view only for the chat's page and to pick a
+language. Nothing is translated outside the chat you have open.
 
 ## Its own window
 
@@ -54,8 +57,9 @@ Language packs are downloaded once from Apple or Google, which therefore see whi
 asked for and from which IP address; never the text.
 
 The plugin itself has no network and does not see the conversation or who it is with. It only gets
-the text **you** hand it with a gesture, or a message of the chat you have open when you switched
-on its translation there (`messages: given`). It keeps the last language you translated into and,
+the text **you** hand it with a gesture, the messages of the chat you have open when you switched
+on its translation there, and the last texts received in a chat you open that has no language yet,
+to tell that language on the phone (`messages: given`). It keeps the last language you translated into and,
 for each chat, under a key that says nothing of who it is with, the chat's language and the two
 switches. Translations are kept by the app, on the phone, with the message.
 
@@ -65,8 +69,8 @@ switches. Translations are kept by the app, on the phone, with the message.
 | -------------- | --------------------------------------------------------------------------------- |
 | `ft.translate` | the languages of this phone, detecting a text's language, whether a pair is ready, downloading and removing packs, and the translation (`translate` permission) |
 | `ft.say`       | *Use in chat*: the translation in the composer (`send: propose`)                  |
-| `ft.onHook`    | the chat's hooks: a held message, the composer, and the chat's language          |
-| `ft.show`      | coming into view during a hook, to ask about a download or the chat's language    |
+| `ft.onHook`    | the chat's hooks: a received message, the composer, and the chat's language       |
+| `ft.show`      | coming into view during a hook, for the chat's page or to pick a language         |
 | `ft.notify`    | a short notice from a hook the user started ("already in your language")          |
 | `ft.store`     | the last language translated into                                                 |
 | `ft.records`   | each chat's language and switches, by the chat's opaque key                       |
