@@ -1,8 +1,12 @@
 // Translator for FlickerTalk (app#177): a message the user hands over, or their own draft,
 // translated on the phone. The plugin only talks to the core (`ft.translate`), which asks the
 // phone's own translator: iOS on iPhone, Google's ML Kit built into the app on Android. The text
-// never leaves the phone, and the plugin has no network and keeps nothing but the last language
-// it translated into.
+// never leaves the phone, and the plugin has no network. It keeps the last language it translated
+// into and, for each chat, the chat's language and whether to translate on its own.
+//
+// From 1.1.0 it binds to the chat's hooks (plan §8): Translate on a held message (a line under it)
+// and in the composer (the draft, translated), and the chat's language in the chat's options. The
+// app runs it hidden; it comes into view (`ft.show()`) only to ask the user something.
 
 import { t } from "./i18n.js";
 
@@ -122,6 +126,10 @@ export function swapped({ from, detected, to, text, result }) {
 /** Where the last language translated into is kept (`ft.store`). */
 const KEPT = "to";
 
+/** Where a chat's settings are kept: one record per chat (`ft.records`), by the chat's opaque key.
+ *  Not `ft.store`, which holds 64 keys: one per chat would run out. */
+const chatRecord = (chat) => `chat:${chat}`;
+
 /** A call to the core that never throws: what the core said, or `fallback` if it said nothing or
  *  failed. The core already answers a refusal with the neutral value; this covers the rest. */
 async function call(work, fallback) {
@@ -136,6 +144,31 @@ async function call(work, fallback) {
 function count(value, lang) {
   return new Intl.NumberFormat(writtenIn(lang)).format(value);
 }
+
+/** A chat's settings, `{ lang, message, composer }`, or null when it has none (or they cannot be
+ *  read). */
+async function readChat(chat) {
+  if (!chat) return null;
+  const raw = await call(() => globalThis.ft.records.get(chatRecord(chat)), null);
+  try {
+    const kept = JSON.parse(raw);
+    if (!kept || typeof kept.lang !== "string" || !kept.lang) return null;
+    return { lang: kept.lang, message: kept.message === true, composer: kept.composer === true };
+  } catch {
+    return null;
+  }
+}
+
+function writeChat(chat, settings) {
+  return call(() => globalThis.ft.records.set(chatRecord(chat), JSON.stringify(settings)), false);
+}
+
+function forgetChat(chat) {
+  return call(() => globalThis.ft.records.forget(chatRecord(chat)), false);
+}
+
+/** What the hooks turn on when the chat has no language, or it is removed. */
+const OFF = { message: false, composer: false };
 
 const escape = (text) =>
   String(text).replace(/[&<>"']/g, (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one]);
@@ -171,6 +204,19 @@ class Translator extends HTMLElement {
     this.warning = "";
     this.packs = null;
     this.acting = false;
+    // The chat's hooks (1.1.0): the chat it is for, its settings on the chat's page, the hook run
+    // the window is in view for, and the answers the user is asked for.
+    this.chat = null;
+    this.chatFor = null;
+    this.chatSaved = null;
+    this.chatLang = "";
+    this.autoMessage = false;
+    this.autoComposer = false;
+    this.inView = false;
+    this.hookText = "";
+    this.pending = null;
+    this.picking = null;
+    this.pickLang = null;
   }
 
   connectedCallback() {
@@ -181,6 +227,7 @@ class Translator extends HTMLElement {
     this.addEventListener("ionChange", (event) => this.onChange(event));
     this.addEventListener("ionInput", (event) => this.onChange(event));
     globalThis.ft?.onOpen?.((opening) => this.onOpen(opening));
+    globalThis.ft?.onHook?.((hook) => this.onHook(hook));
     this.paint();
   }
 
@@ -193,6 +240,10 @@ class Translator extends HTMLElement {
    *  Then what this phone can translate, and where to by default. */
   async onOpen(opening) {
     this.language = opening.lang || "en";
+    if (opening.chat) this.chat = opening.chat;
+    if (opening.hook === "chat") return this.openChat(this.chat);
+    // In view for a hook run (after `ft.show()`): its own screen stays.
+    if (opening.hook || this.inView) return;
     this.text = String(opening.text ?? "");
     this.from = AUTO;
     this.detected = null;
@@ -203,12 +254,223 @@ class Translator extends HTMLElement {
     const translator = globalThis.ft?.translate;
     const languages = translator ? await call(() => translator.languages(), []) : [];
     this.languages = Array.isArray(languages) ? languages.filter((tag) => typeof tag === "string" && tag) : [];
+    if (this.inView) return;
     if (this.languages.length === 0) return this.show("cannot");
     const fromMessage = this.text.trim().length > 0;
     const kept = await call(() => globalThis.ft.store.get(KEPT), null);
     if (fromMessage) await this.detectFor(this.text);
     this.to = defaultTarget(this.languages, { lang: this.language, kept, source: this.detected, fromMessage });
+    if (this.inView) return;
     this.show("main");
+  }
+
+  /** The languages this phone translates, asked once. */
+  async loadLanguages() {
+    if (this.languages.length > 0) return this.languages;
+    const translator = globalThis.ft?.translate;
+    const languages = translator ? await call(() => translator.languages(), []) : [];
+    this.languages = Array.isArray(languages) ? languages.filter((tag) => typeof tag === "string" && tag) : [];
+    return this.languages;
+  }
+
+  /**
+   * One run of a chat's hook (`ft.onHook`): `message` gives the line under a held message,
+   * `composer` the draft in the chat's language, `chat` what to translate on its own in this chat.
+   * Null when there is nothing to show or keep. It never throws, and a run the app started on its
+   * own (`manual: false`) never comes into view and never says anything.
+   */
+  async onHook(hook) {
+    const run = { manual: hook?.manual === true, up: false };
+    try {
+      this.language = hook?.lang || this.language || "en";
+      if (hook?.chat) this.chat = hook.chat;
+      if (hook?.name === "message") return await this.hookMessage(hook, run);
+      if (hook?.name === "composer") return await this.hookComposer(hook, run);
+      if (hook?.name === "chat") return await this.hookChat(hook, run);
+      return null;
+    } catch {
+      return null;
+    } finally {
+      if (run.up) this.inView = false;
+    }
+  }
+
+  /** Comes into view for this run, once, before drawing anything the user must see. */
+  comeUp(run) {
+    if (run.up) return;
+    run.up = true;
+    this.inView = true;
+    globalThis.ft?.show?.();
+  }
+
+  /** A short notice in the app's own toast (`ft.notify`), with no window: only when the user
+   *  started the run. Always null, the answer of a run that says it. */
+  tell(run, key, values) {
+    if (run.manual) globalThis.ft?.notify?.(this.words(key, values));
+    return null;
+  }
+
+  /** Whether a hook's text can go to the core: not empty, and not more than it takes. */
+  checkText(run, text) {
+    if (!text.trim()) return false;
+    if (!tooLong(text)) return true;
+    this.tell(run, "tooLong", { max: count(MAX_CHARS, this.language) });
+    return false;
+  }
+
+  /** The language of a text, as the phone tells it, matched to one this phone has; null if not. */
+  async detectIn(text, languages) {
+    const said = await call(() => globalThis.ft.translate.detect(text), null);
+    return typeof said === "string" ? matchLanguage(languages, said) : null;
+  }
+
+  /** The line under a held message: detect → status → (download, in view, once the user says so)
+   *  → translate, into the app's language. */
+  async hookMessage(hook, run) {
+    const text = String(hook.text ?? "");
+    if (!this.checkText(run, text)) return null;
+    const languages = await this.loadLanguages();
+    if (languages.length === 0) return this.tell(run, "cannot");
+    const from = await this.detectIn(text, languages);
+    if (!from) return this.tell(run, "notDetected");
+    const to = matchLanguage(languages, this.language);
+    if (!to) return this.tell(run, "unsupported");
+    if (from === to) return this.tell(run, "same", { language: languageWord(from, this.language) });
+    const translated = await this.translateFor(run, text, from, to);
+    return translated ? { text: translated } : null;
+  }
+
+  /** The draft in the chat's language. A chat with none: the user picks it (in view), and it is
+   *  kept for the chat; on its own, nothing. A draft already in it goes as it is. */
+  async hookComposer(hook, run) {
+    const text = String(hook.text ?? "");
+    if (!this.checkText(run, text)) return null;
+    const languages = await this.loadLanguages();
+    if (languages.length === 0) return this.tell(run, "cannot");
+    const kept = await readChat(hook.chat);
+    let to = kept && languages.includes(kept.lang) ? kept.lang : null;
+    if (!to) {
+      if (!run.manual) return null;
+      this.comeUp(run);
+      to = await this.pickChatLanguage();
+      if (!to) return null;
+      await writeChat(hook.chat, { lang: to, ...OFF });
+    }
+    const from = (await this.detectIn(text, languages)) ?? matchLanguage(languages, this.language);
+    if (!from) return this.tell(run, "notDetected");
+    if (from === to) return run.manual ? this.tell(run, "same", { language: languageWord(to, this.language) }) : { text };
+    const translated = await this.translateFor(run, text, from, to);
+    return translated ? { text: translated } : null;
+  }
+
+  /** The chat's page, in view: its language and the two switches; the answer is what to do on its
+   *  own in this chat, once the user saves or removes it. */
+  async hookChat(hook, run) {
+    const languages = await this.loadLanguages();
+    if (languages.length === 0) return this.tell(run, "cannot");
+    this.comeUp(run);
+    const answer = new Promise((resolve) => (this.pending = resolve));
+    await this.openChat(hook.chat);
+    return answer;
+  }
+
+  /** status → (download, in view, once the user says so) → translate. The translation, or null. */
+  async translateFor(run, text, from, to) {
+    const translator = globalThis.ft.translate;
+    const state = await call(() => translator.status(from, to), "unsupported");
+    if (state !== "installed" && state !== "downloadable") return this.tell(run, "unsupported");
+    if (state === "downloadable") {
+      if (!run.manual) return null;
+      this.comeUp(run);
+      this.hookText = text;
+      this.working = null;
+      this.warning = "";
+      this.show("hook");
+      if (!(await this.agreeToDownload(from, to))) return null;
+      this.busy("downloading");
+      const ready = await call(() => translator.prepare(from, to), false);
+      if (ready !== true) return this.tell(run, "noDownload");
+      this.busy("translating");
+    }
+    const translated = await call(() => translator.translate(text, from, to), null);
+    if (typeof translated !== "string" || !translated) return this.tell(run, "failed");
+    return translated;
+  }
+
+  /** Asks for the chat's language, in view; the tag, or null when the user backs out. */
+  async pickChatLanguage() {
+    const kept = await call(() => globalThis.ft.store.get(KEPT), null);
+    const app = matchLanguage(this.languages, this.language);
+    this.pickLang = defaultTarget(this.languages, { lang: this.language, kept, source: app, fromMessage: false });
+    const answer = new Promise((resolve) => (this.picking = resolve));
+    this.show("pick");
+    return answer;
+  }
+
+  /** The chat's page, with what the chat has. Drawn once per chat. */
+  async openChat(chat) {
+    if (this.chatFor === chat && (this.screen === "chat" || this.screen === "loading")) return;
+    this.chatFor = chat;
+    this.chat = chat;
+    this.show("loading");
+    const languages = await this.loadLanguages();
+    if (languages.length === 0) return this.show("cannot");
+    const kept = await readChat(chat);
+    this.chatSaved = kept;
+    this.chatLang = kept && languages.includes(kept.lang) ? kept.lang : "";
+    this.autoMessage = Boolean(this.chatLang && kept.message);
+    this.autoComposer = Boolean(this.chatLang && kept.composer);
+    this.working = null;
+    this.warning = "";
+    this.show("chat");
+  }
+
+  /** Save: the chat's language and switches, after the languages the switches need are on the
+   *  phone (asked once, like any download). */
+  async saveChat() {
+    const lang = this.chatLang;
+    if (!lang) return this.removeChat();
+    const app = matchLanguage(this.languages, this.language);
+    const pairs = [];
+    if (app && app !== lang) {
+      if (this.autoMessage) pairs.push([lang, app]);
+      if (this.autoComposer) pairs.push([app, lang]);
+    }
+    const translator = globalThis.ft.translate;
+    const states = await Promise.all(pairs.map(([from, to]) => call(() => translator.status(from, to), "unsupported")));
+    if (states.some((state) => state !== "installed" && state !== "downloadable")) return this.warn("unsupported");
+    if (states.includes("downloadable")) {
+      if (!(await this.agreeToDownload(lang, app))) return this.paintState();
+      this.busy("downloading");
+      for (const [from, to] of pairs) {
+        const state = await call(() => translator.status(from, to), "unsupported");
+        if (state === "downloadable" && (await call(() => translator.prepare(from, to), false)) !== true) {
+          this.working = null;
+          return this.warn("noDownload");
+        }
+      }
+      this.busy(null);
+    }
+    const settings = { lang, message: this.autoMessage, composer: this.autoComposer };
+    await writeChat(this.chat, settings);
+    this.chatSaved = settings;
+    this.finishChat({ auto: { message: settings.message, composer: settings.composer } });
+  }
+
+  /** Remove: the chat has no language any more, and nothing is translated on its own. */
+  async removeChat() {
+    await forgetChat(this.chat);
+    this.chatSaved = null;
+    this.finishChat({ auto: { ...OFF } });
+  }
+
+  /** Hands the chat hook its answer; with no run waiting (the window opened alone), closes. */
+  finishChat(answer) {
+    const resolve = this.pending;
+    this.pending = null;
+    this.chatFor = null;
+    if (resolve) resolve(answer);
+    else globalThis.ft?.close?.();
   }
 
   show(screen) {
@@ -246,13 +508,26 @@ class Translator extends HTMLElement {
     else if (act === "packs") await this.listPacks();
     else if (act === "erase") await this.erase(key);
     else if (act === "back") this.show("main");
+    else if (act === "chatSave") await this.saveChat();
+    else if (act === "chatRemove") await this.removeChat();
+    else if (act === "pickTranslate" || act === "pickCancel") {
+      const resolve = this.picking;
+      this.picking = null;
+      resolve?.(act === "pickTranslate" ? this.pickLang || null : null);
+    }
   }
 
   /** What Ionic's selects and text area say: a language picked, or the text typed. A translation
    *  that no longer matches them goes. */
   async onChange(event) {
     const name = event.target?.dataset?.field;
-    if (!name || this.screen !== "main") return;
+    if (!name) return;
+    if (this.screen === "chat") return this.onChatChange(name, event);
+    if (this.screen === "pick") {
+      if (name === "pickLang") this.pickLang = event.detail?.value ?? event.target.value ?? null;
+      return;
+    }
+    if (this.screen !== "main") return;
     const value = event.detail?.value ?? event.target.value ?? "";
     if (name === "text") {
       if (value === this.text) return;
@@ -268,6 +543,22 @@ class Translator extends HTMLElement {
       await call(() => globalThis.ft.store.set(KEPT, value), false);
     } else return;
     this.result = null;
+    this.warning = "";
+    this.paintState();
+  }
+
+  /** The chat's page: choosing a language switches both on; none switches both off. */
+  onChatChange(name, event) {
+    if (name === "chatLang") {
+      const value = String(event.detail?.value ?? event.target.value ?? "");
+      if (value === this.chatLang) return;
+      const had = this.chatLang;
+      this.chatLang = value;
+      if (!value) this.autoMessage = this.autoComposer = false;
+      else if (!had) this.autoMessage = this.autoComposer = true;
+    } else if (name === "autoMessage" || name === "autoComposer") {
+      this[name] = Boolean(event.detail?.checked ?? event.target.checked);
+    } else return;
     this.warning = "";
     this.paintState();
   }
@@ -394,6 +685,9 @@ class Translator extends HTMLElement {
     if (this.screen === "main") this.paintMain();
     else if (this.screen === "packs") this.paintPacks();
     else if (this.screen === "cannot") this.paintCannot();
+    else if (this.screen === "chat") this.paintChat();
+    else if (this.screen === "pick") this.paintPick();
+    else if (this.screen === "hook") this.paintHook();
     else this.innerHTML = `<ion-content class="ion-padding ion-text-center"><ion-spinner aria-hidden="true"></ion-spinner></ion-content>`;
   }
 
@@ -407,11 +701,7 @@ class Translator extends HTMLElement {
   /** The text, the two languages and the translation. Drawn once per screen; what changes after
    *  is set on the elements Ionic already drew, so nothing flashes and the keyboard stays. */
   paintMain() {
-    const options = sortLanguages(this.languages, this.language)
-      .map(({ tag, name }) => `<ion-select-option value="${escape(tag)}">${escape(name)}</ion-select-option>`)
-      .join("");
-    const select = (name, auto) =>
-      `<ion-select data-field="${name}" label="${escape(this.words(name))}" interface="alert" ok-text="${escape(this.words("ok"))}" cancel-text="${escape(this.words("cancel"))}">${auto}${options}</ion-select>`;
+    const select = (name, auto) => this.languageSelect(name, this.words(name), auto);
     this.innerHTML = `<ion-header><ion-toolbar>
         <ion-buttons slot="end">${button("packs", this.words("packs"), "download-outline")}</ion-buttons>
       </ion-toolbar></ion-header>
@@ -453,22 +743,92 @@ class Translator extends HTMLElement {
   /** What is going on (a spinner while the phone works, or what went wrong), the translation, and
    *  which buttons can be pressed. */
   paintState() {
+    if (!this.paintStatus()) return;
+    if (this.screen === "chat") return this.paintChatValues();
+    if (this.screen !== "main") return;
+    const answer = this.querySelector(".answer");
+    answer.innerHTML = this.result
+      ? `<ion-card class="result" aria-label="${escape(this.words("translation"))}"><ion-card-content><p dir="auto" lang="${escape(this.result.to)}">${lines(this.result.text)}</p></ion-card-content></ion-card>`
+      : "";
+    this.querySelector('[data-act="translate"]').disabled = Boolean(this.working) || !this.text.trim();
+    this.querySelector('[data-act="say"]').disabled = Boolean(this.working) || !this.result;
+    this.querySelector('[data-act="swap"]').disabled = Boolean(this.working) || !this.result;
+  }
+
+  /** What the phone is doing, or what went wrong. False on a screen with no place for it. */
+  paintStatus() {
     const status = this.querySelector(".status");
-    if (!status) return;
+    if (!status) return false;
     status.innerHTML = this.working
       ? `<ion-item lines="none"><ion-spinner slot="start" aria-hidden="true"></ion-spinner><ion-label>${escape(this.words(this.working))}</ion-label></ion-item>`
       : this.warning
         ? `<ion-text color="danger"><p role="alert">${escape(this.warning)}</p></ion-text>`
         : "";
-    const answer = this.querySelector(".answer");
-    if (answer) {
-      answer.innerHTML = this.result
-        ? `<ion-card class="result" aria-label="${escape(this.words("translation"))}"><ion-card-content><p dir="auto" lang="${escape(this.result.to)}">${lines(this.result.text)}</p></ion-card-content></ion-card>`
-        : "";
+    return true;
+  }
+
+  /** A language select of Ionic, with every language of this phone by its name. */
+  languageSelect(field, label, first = "") {
+    const options = sortLanguages(this.languages, this.language)
+      .map(({ tag, name }) => `<ion-select-option value="${escape(tag)}">${escape(name)}</ion-select-option>`)
+      .join("");
+    return `<ion-select data-field="${field}" label="${escape(label)}" interface="alert" ok-text="${escape(this.words("ok"))}" cancel-text="${escape(this.words("cancel"))}">${first}${options}</ion-select>`;
+  }
+
+  /** The chat's page (the `chat` hook): its language, the two switches, and what downloading
+   *  means; Remove and Save in the footer. */
+  paintChat() {
+    const none = `<ion-select-option value="">${escape(this.words("none"))}</ion-select-option>`;
+    this.innerHTML = `<ion-content>
+        <ion-list>
+          <ion-item>${this.languageSelect("chatLang", this.words("chatLanguage"), none)}</ion-item>
+          <ion-item><ion-toggle data-field="autoMessage" justify="space-between">${escape(this.words("autoReceive"))}</ion-toggle></ion-item>
+          <ion-item><ion-toggle data-field="autoComposer" justify="space-between">${escape(this.words("autoSend"))}</ion-toggle></ion-item>
+        </ion-list>
+        <ion-text color="medium"><p class="ion-padding-horizontal">${escape(this.words("chatNote"))}</p></ion-text>
+        <div class="status ion-padding-horizontal" role="status" aria-live="polite"></div>
+      </ion-content>
+      <ion-footer><ion-toolbar>
+        <ion-buttons slot="start"><ion-button color="danger" data-act="chatRemove">${icon("trash-outline", "start")}${escape(this.words("remove"))}</ion-button></ion-buttons>
+        <ion-buttons slot="end"><ion-button fill="solid" color="primary" data-act="chatSave">${icon("checkmark-outline", "start")}${escape(this.words("save"))}</ion-button></ion-buttons>
+      </ion-toolbar></ion-footer>`;
+    this.paintChatValues();
+    this.paintStatus();
+  }
+
+  /** The chat's language and switches as they are now, on what Ionic drew. */
+  paintChatValues() {
+    const select = this.querySelector('[data-field="chatLang"]');
+    if (!select) return;
+    select.value = this.chatLang;
+    for (const [field, on] of [["autoMessage", this.autoMessage], ["autoComposer", this.autoComposer]]) {
+      const toggle = this.querySelector(`[data-field="${field}"]`);
+      toggle.checked = on;
+      toggle.disabled = !this.chatLang || Boolean(this.working);
     }
-    this.querySelector('[data-act="translate"]').disabled = Boolean(this.working) || !this.text.trim();
-    this.querySelector('[data-act="say"]').disabled = Boolean(this.working) || !this.result;
-    this.querySelector('[data-act="swap"]').disabled = Boolean(this.working) || !this.result;
+    this.querySelector('[data-act="chatSave"]').disabled = Boolean(this.working);
+    this.querySelector('[data-act="chatRemove"]').disabled = Boolean(this.working) || !this.chatSaved;
+  }
+
+  /** The composer's question when the chat has no language yet: which one, then Translate. */
+  paintPick() {
+    this.innerHTML = `<ion-content>
+        <ion-list><ion-item>${this.languageSelect("pickLang", this.words("chatLanguage"))}</ion-item></ion-list>
+      </ion-content>
+      <ion-footer><ion-toolbar>
+        <ion-buttons slot="start"><ion-button data-act="pickCancel">${escape(this.words("cancel"))}</ion-button></ion-buttons>
+        <ion-buttons slot="end"><ion-button fill="solid" color="primary" data-act="pickTranslate">${icon("language-outline", "start")}${escape(this.words("translate"))}</ion-button></ion-buttons>
+      </ion-toolbar></ion-footer>`;
+    this.querySelector('[data-field="pickLang"]').value = this.pickLang;
+  }
+
+  /** A hook's text while the phone downloads or translates it, in view. */
+  paintHook() {
+    this.innerHTML = `<ion-content class="ion-padding">
+        <ion-card><ion-card-content><p dir="auto">${lines(this.hookText)}</p></ion-card-content></ion-card>
+        <div class="status" role="status" aria-live="polite"></div>
+      </ion-content>`;
+    this.paintStatus();
   }
 
   paintPacks() {
