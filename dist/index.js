@@ -140,41 +140,17 @@ function count(value, lang) {
 const escape = (text) =>
   String(text).replace(/[&<>"']/g, (one) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[one]);
 
-// Ionic draws the window (the app lends it to the frame, app 1.6.0): header, toolbar, selects, the
-// text area, buttons, card, list and the scrolling content. This is only what is the translator's
-// own, with the app's colours through Ionic's variables.
-const STYLE = `
-ft-translate { display: flex; flex-direction: column; height: 100%; font: 15px system-ui, sans-serif; color: var(--ion-text-color, #111); }
-ft-translate * { box-sizing: border-box; }
-ft-translate [hidden] { display: none !important; }
-ft-translate ion-content { flex: 1; }
-ft-translate .view { padding: 8px 12px 24px; }
-ft-translate .i {
-  display: block; width: 22px; height: 22px; margin: auto; background: currentColor;
-  -webkit-mask: var(--i) center/contain no-repeat; mask: var(--i) center/contain no-repeat;
-}
-ft-translate ion-button .i[slot="start"] { margin-inline-end: 6px; }
-ft-translate .pair { margin: 0 0 12px; }
-ft-translate ion-textarea { margin: 0 0 12px; }
-ft-translate .status { display: flex; align-items: center; gap: 8px; min-height: 1.5em; margin: 10px 0; color: var(--ion-color-medium, #666); }
-ft-translate .warn { color: var(--ion-color-danger, #e0562b); margin: 0; }
-ft-translate .result { margin: 0; }
-ft-translate .result p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 16px; line-height: 1.45; color: var(--ion-text-color, inherit); }
-ft-translate .section { color: var(--ion-color-medium, #666); font-size: 13px; margin: 8px 4px; }
-ft-translate .cannot, ft-translate .empty, ft-translate .loading { color: var(--ion-color-medium, #666); text-align: center; padding: 48px 16px; }
-ft-translate .cannot .i, ft-translate .cannot ion-icon { width: 48px; height: 48px; font-size: 48px; margin: 0 auto 12px; display: block; }
-`;
+// Ionic draws everything (the app lends it to the frame from 1.6.0; this plugin needs 1.7.0): the
+// element is an `ion-page` with Ionic's header, content and footer, every control is an Ionic
+// component and every icon an `ion-icon` the app registers by name. No style of its own: the look
+// is the lent Ionic's, with the app's colours.
 
-/** An Ionicon: Ionic's own `ion-icon` when the app lent it by name, else the one the app serves at
- *  `./icon/<name>.svg`, painted in the text's colour. Hidden from screen readers. */
-const icon = (name, slot = "icon-only") => {
-  const where = slot ? ` slot="${slot}"` : "";
-  return globalThis.Ionicons?.map?.has(name)
-    ? `<ion-icon${where} name="${name}" aria-hidden="true"></ion-icon>`
-    : `<i${where} class="i" style="--i:url(./icon/${name}.svg)" aria-hidden="true"></i>`;
-};
+/** An Ionicon the app lends, by name. Hidden from screen readers: the button carries the label. */
+const icon = (name, slot = "icon-only") => `<ion-icon${slot ? ` slot="${slot}"` : ""} name="${name}" aria-hidden="true"></ion-icon>`;
 /** An Ionic button with an icon only, in a toolbar. */
-const button = (act, label, name) => `<ion-button fill="clear" data-act="${act}" aria-label="${escape(label)}">${icon(name)}</ion-button>`;
+const button = (act, label, name) => `<ion-button data-act="${act}" aria-label="${escape(label)}">${icon(name)}</ion-button>`;
+/** A text with its line breaks, safe to put in the page. */
+const lines = (text) => escape(text).replace(/\n/g, "<br>");
 
 /** The plugin's view: the text and its translation, or the languages downloaded on this phone. */
 class Translator extends HTMLElement {
@@ -199,7 +175,8 @@ class Translator extends HTMLElement {
 
   connectedCallback() {
     // In the page, not in a shadow root: the frame holds only this plugin, and Ionic's global
-    // styles do not cross a shadow boundary.
+    // styles do not cross a shadow boundary. An Ionic page: header, content and footer.
+    this.classList.add("ion-page");
     this.addEventListener("click", (event) => this.onClick(event));
     this.addEventListener("ionChange", (event) => this.onChange(event));
     this.addEventListener("ionInput", (event) => this.onChange(event));
@@ -417,12 +394,14 @@ class Translator extends HTMLElement {
     if (this.screen === "main") this.paintMain();
     else if (this.screen === "packs") this.paintPacks();
     else if (this.screen === "cannot") this.paintCannot();
-    else this.innerHTML = `<style>${STYLE}</style><ion-content><div class="view loading"><ion-spinner aria-hidden="true"></ion-spinner></div></ion-content>`;
+    else this.innerHTML = `<ion-content class="ion-padding ion-text-center"><ion-spinner aria-hidden="true"></ion-spinner></ion-content>`;
   }
 
   paintCannot() {
-    this.innerHTML = `<style>${STYLE}</style>
-      <ion-content><div class="view"><p class="cannot">${icon("language-outline", "")}${escape(this.words("cannot"))}</p></div></ion-content>`;
+    this.innerHTML = `<ion-content class="ion-padding ion-text-center">
+        ${icon("language-outline", "")}
+        <ion-text color="medium"><p class="cannot">${escape(this.words("cannot"))}</p></ion-text>
+      </ion-content>`;
   }
 
   /** The text, the two languages and the translation. Drawn once per screen; what changes after
@@ -433,20 +412,19 @@ class Translator extends HTMLElement {
       .join("");
     const select = (name, auto) =>
       `<ion-select data-field="${name}" label="${escape(this.words(name))}" interface="alert" ok-text="${escape(this.words("ok"))}" cancel-text="${escape(this.words("cancel"))}">${auto}${options}</ion-select>`;
-    this.innerHTML = `<style>${STYLE}</style>
-      <ion-header><ion-toolbar>
+    this.innerHTML = `<ion-header><ion-toolbar>
         <ion-buttons slot="end">${button("packs", this.words("packs"), "download-outline")}</ion-buttons>
       </ion-toolbar></ion-header>
-      <ion-content><div class="view">
-        <ion-list class="pair">
+      <ion-content class="ion-padding">
+        <ion-list class="ion-margin-bottom">
           <ion-item>${select("from", `<ion-select-option value="${AUTO}"></ion-select-option>`)}</ion-item>
           <ion-item>${select("to", "")}</ion-item>
         </ion-list>
-        <ion-textarea data-field="text" label="${escape(this.words("text"))}" label-placement="stacked" fill="outline" auto-grow="true" rows="4" maxlength="${MAX_CHARS}" counter="true" dir="auto"></ion-textarea>
+        <ion-textarea class="ion-margin-bottom" data-field="text" label="${escape(this.words("text"))}" label-placement="stacked" fill="outline" auto-grow="true" rows="4" maxlength="${MAX_CHARS}" counter="true" dir="auto"></ion-textarea>
         <ion-button expand="block" data-act="translate">${icon("language-outline", "start")}${escape(this.words("translate"))}</ion-button>
         <div class="status" role="status" aria-live="polite"></div>
-        <ion-card class="result" aria-label="${escape(this.words("translation"))}" hidden><ion-card-content><p dir="auto"></p></ion-card-content></ion-card>
-      </div></ion-content>
+        <div class="answer"></div>
+      </ion-content>
       <ion-footer><ion-toolbar>
         <ion-buttons slot="start"><ion-button data-act="swap">${icon("refresh-outline", "start")}${escape(this.words("swap"))}</ion-button></ion-buttons>
         <ion-buttons slot="end"><ion-button fill="solid" color="primary" data-act="say">${icon("chatbubble-outline", "start")}${escape(this.words("useInChat"))}</ion-button></ion-buttons>
@@ -478,16 +456,16 @@ class Translator extends HTMLElement {
     const status = this.querySelector(".status");
     if (!status) return;
     status.innerHTML = this.working
-      ? `<ion-spinner aria-hidden="true"></ion-spinner><span>${escape(this.words(this.working))}</span>`
+      ? `<ion-item lines="none"><ion-spinner slot="start" aria-hidden="true"></ion-spinner><ion-label>${escape(this.words(this.working))}</ion-label></ion-item>`
       : this.warning
-        ? `<p class="warn" role="alert">${escape(this.warning)}</p>`
+        ? `<ion-text color="danger"><p role="alert">${escape(this.warning)}</p></ion-text>`
         : "";
-    const card = this.querySelector(".result");
-    const line = card.querySelector("p");
-    card.hidden = !this.result;
-    line.textContent = this.result?.text ?? "";
-    if (this.result) line.setAttribute("lang", this.result.to);
-    else line.removeAttribute("lang");
+    const answer = this.querySelector(".answer");
+    if (answer) {
+      answer.innerHTML = this.result
+        ? `<ion-card class="result" aria-label="${escape(this.words("translation"))}"><ion-card-content><p dir="auto" lang="${escape(this.result.to)}">${lines(this.result.text)}</p></ion-card-content></ion-card>`
+        : "";
+    }
     this.querySelector('[data-act="translate"]').disabled = Boolean(this.working) || !this.text.trim();
     this.querySelector('[data-act="say"]').disabled = Boolean(this.working) || !this.result;
     this.querySelector('[data-act="swap"]').disabled = Boolean(this.working) || !this.result;
@@ -504,15 +482,15 @@ class Translator extends HTMLElement {
       .join("");
     const body =
       this.packs === null
-        ? `<div class="loading"><ion-spinner aria-hidden="true"></ion-spinner></div>`
-        : rows
-          ? `<ion-list>${rows}</ion-list>`
-          : `<p class="empty">${escape(this.words("packsEmpty"))}</p>`;
-    this.innerHTML = `<style>${STYLE}</style>
-      <ion-header><ion-toolbar>
+        ? `<div class="ion-padding ion-text-center"><ion-spinner aria-hidden="true"></ion-spinner></div>`
+        : rows || `<ion-item lines="none"><ion-label class="ion-text-wrap" color="medium"><p class="empty">${escape(this.words("packsEmpty"))}</p></ion-label></ion-item>`;
+    this.innerHTML = `<ion-header><ion-toolbar>
         <ion-buttons slot="start">${button("back", this.words("back"), "arrow-back-outline")}</ion-buttons>
       </ion-toolbar></ion-header>
-      <ion-content><div class="view"><p class="section">${escape(this.words("packs"))}</p>${body}</div></ion-content>`;
+      <ion-content><ion-list>
+        <ion-list-header><ion-label>${escape(this.words("packs"))}</ion-label></ion-list-header>
+        ${body}
+      </ion-list></ion-content>`;
   }
 }
 

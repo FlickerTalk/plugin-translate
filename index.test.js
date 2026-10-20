@@ -394,7 +394,6 @@ describe("the plugin", () => {
     for (const one of document.querySelectorAll("ion-toast")) await one.dismiss();
     delete globalThis.confirm;
     delete globalThis.prompt;
-    delete globalThis.Ionicons;
   });
 
   it("shows the message it was handed, tells its language and sets the app's as the one to translate into", async () => {
@@ -410,7 +409,7 @@ describe("the plugin", () => {
     expect(optionsOf("from").slice(1)).toEqual(optionsOf("to"));
     // Nothing is translated until the user asks.
     expect(core.ft.translate.translate).not.toHaveBeenCalled();
-    expect(result().hidden).toBe(true);
+    expect(result()).toBeNull();
   });
 
   it("matches the app's language and the detected one to the tags an iPhone lists", async () => {
@@ -431,7 +430,6 @@ describe("the plugin", () => {
     expect(core.ft.translate.status).toHaveBeenCalledWith("de", "en");
     expect(core.ft.translate.prepare).not.toHaveBeenCalled();
     expect(core.ft.translate.translate).toHaveBeenCalledWith("Guten Morgen", "de", "en");
-    expect(result().hidden).toBe(false);
     expect(result().textContent).toBe("[de→en] Guten Morgen");
     expect(result().querySelector("[lang]").getAttribute("lang")).toBe("en");
   });
@@ -559,7 +557,7 @@ describe("the plugin", () => {
     await core.open({ text: "Guten Morgen" });
     await press("translate");
     await type("Danke schön");
-    expect(result().hidden).toBe(true);
+    expect(result()).toBeNull();
     expect(act("say").disabled).toBe(true);
     expect(optionsOf("from")[0]).toEqual([AUTO, "Detect language"]);
   });
@@ -602,7 +600,7 @@ describe("the plugin", () => {
     await core.open({ text: "Guten Morgen" });
     await press("translate");
     expect((await toast())?.message).toBe("Could not translate.");
-    expect(result().hidden).toBe(true);
+    expect(result()).toBeNull();
   });
 
   it("stays alive when a call to the core fails", async () => {
@@ -674,7 +672,6 @@ describe("the plugin", () => {
     expect(element.querySelector(":scope > ion-content ion-select[data-field='to']")).not.toBeNull();
     expect(element.querySelector(":scope > ion-content ion-textarea[data-field='text']")).not.toBeNull();
     expect(element.querySelector(':scope > ion-content ion-button[data-act="translate"]').textContent).toContain("Translate");
-    expect(element.querySelector(":scope > ion-content ion-card.result")).not.toBeNull();
     const footer = element.querySelector(":scope > ion-footer > ion-toolbar");
     expect(footer.querySelector('ion-button[data-act="say"]').textContent).toContain("Use in chat");
     expect(footer.querySelector('ion-button[data-act="swap"]').textContent).toContain("Swap");
@@ -691,12 +688,29 @@ describe("the plugin", () => {
     expect(element.isConnected).toBe(false);
   });
 
-  it("draws an Ionicon the app lent by name with ion-icon, and the one it serves otherwise", async () => {
-    await core.open({});
-    expect(element.querySelector('[data-act="packs"] [slot="icon-only"]').getAttribute("style")).toContain("./icon/download-outline.svg");
-    globalThis.Ionicons = { map: new Map([["download-outline", "data:image/svg+xml;utf8,<svg></svg>"]]) };
-    await core.open({});
+  // 2026-10-20 (Ioan): every control is a real Ionic component in Ionic's own structure, with the
+  // look of the Ionic the app lends; nothing drawn or styled by hand.
+  it("draws only Ionic: an ion-page with ion-icons by name and no style of its own", async () => {
+    await core.open({ text: "Guten Morgen" });
+    expect(element.classList.contains("ion-page")).toBe(true);
+    expect(element.querySelector("style, i, .i")).toBeNull();
+    const icons = [...element.querySelectorAll("ion-icon")];
+    expect(icons.length).toBeGreaterThan(0);
+    for (const one of icons) expect(one.getAttribute("name")).toMatch(/-outline$/);
     expect(element.querySelector('[data-act="packs"] ion-icon[slot="icon-only"]').getAttribute("name")).toBe("download-outline");
+    const say = element.querySelector(':scope > ion-footer > ion-toolbar > ion-buttons > ion-button[data-act="say"]');
+    expect(say.getAttribute("fill")).toBe("solid");
+    expect(say.querySelector('ion-icon[slot="start"]').getAttribute("name")).toBe("chatbubble-outline");
+    expect(element.querySelector(':scope > ion-content ion-button[data-act="translate"]').getAttribute("expand")).toBe("block");
+  });
+
+  it("shows the translation in an Ionic card only once there is one, line breaks kept", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen\nDanke" });
+    expect(result()).toBeNull();
+    await press("translate");
+    expect(result().tagName).toBe("ION-CARD");
+    expect(result().querySelector("ion-card-content [lang]").innerHTML).toBe("[de→en] Guten Morgen<br>Danke");
   });
 });
 
@@ -723,6 +737,12 @@ describe("the package", () => {
   it("uses no form and no browser dialog", () => {
     const code = readFileSync(join(dist, "index.js"), "utf8");
     expect(code).not.toMatch(/<form|\bconfirm\(|\bprompt\(|\balert\(/);
+  });
+
+  // The look is the lent Ionic's (2026-10-20, Ioan): no style sheet, inline style or hand-drawn icon.
+  it("styles nothing by hand", () => {
+    const code = readFileSync(join(dist, "index.js"), "utf8");
+    expect(code).not.toMatch(/<style|style="|class="i"|mask:/);
   });
 
   // The Ionicons app 1.6.0 registers by name in the frame: the ones the core serves at ./icon/ and

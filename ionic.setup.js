@@ -4,6 +4,8 @@
 // real `@ionic/core`, the version the app ships, so what the plugin draws here is what the phone
 // draws. None of it goes into `dist/`.
 import { alertController, initialize, toastController } from "@ionic/core/components";
+import { addIcons } from "ionicons";
+import * as ionicons from "ionicons/icons";
 import { defineCustomElement as alert } from "@ionic/core/components/ion-alert.js";
 import { defineCustomElement as button } from "@ionic/core/components/ion-button.js";
 import { defineCustomElement as buttons } from "@ionic/core/components/ion-buttons.js";
@@ -16,14 +18,20 @@ import { defineCustomElement as icon } from "@ionic/core/components/ion-icon.js"
 import { defineCustomElement as item } from "@ionic/core/components/ion-item.js";
 import { defineCustomElement as label } from "@ionic/core/components/ion-label.js";
 import { defineCustomElement as list } from "@ionic/core/components/ion-list.js";
+import { defineCustomElement as listHeader } from "@ionic/core/components/ion-list-header.js";
 import { defineCustomElement as select } from "@ionic/core/components/ion-select.js";
 import { defineCustomElement as selectOption } from "@ionic/core/components/ion-select-option.js";
 import { defineCustomElement as spinner } from "@ionic/core/components/ion-spinner.js";
+import { defineCustomElement as text } from "@ionic/core/components/ion-text.js";
 import { defineCustomElement as textarea } from "@ionic/core/components/ion-textarea.js";
 import { defineCustomElement as toast } from "@ionic/core/components/ion-toast.js";
+import { defineCustomElement as toggle } from "@ionic/core/components/ion-toggle.js";
 import { defineCustomElement as toolbar } from "@ionic/core/components/ion-toolbar.js";
 
 initialize();
-const elements = [alert, button, buttons, card, cardContent, content, footer, header, icon, item, label, list, select, selectOption, spinner, textarea, toast, toolbar];
+const elements = [alert, button, buttons, card, cardContent, content, footer, header, icon, item, label, list, listHeader, select, selectOption, spinner, text, textarea, toast, toggle, toolbar];
 for (const define of elements) define();
 globalThis.ftIonic = { alertController, toastController };
+// The app registers the Ionicons it lends by name, so `<ion-icon name="…">` draws with no fetch.
+const kebab = (name) => name.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+addIcons(Object.fromEntries(Object.entries(ionicons).filter(([name]) => name.endsWith("Outline")).map(([name, svg]) => [kebab(name), svg])));
