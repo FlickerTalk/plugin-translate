@@ -18,7 +18,9 @@ the phone. Language packs are downloaded once from Apple or Google; the text nev
   ones you no longer need. On Android that is the only way to get their space back without clearing
   the app's data; on iPhone iOS manages them in its Settings.
 - A text has up to 5,000 characters, about one message.
-- A phone with no translator (a desktop, an iPhone before iOS 18) gets one sentence saying so.
+- Where it cannot translate, one sentence says so: on a phone with no translator (a desktop, an
+  iPhone before iOS 18), and when the user did not allow the Translator to translate, which the
+  plugin cannot tell apart.
 
 ## Privacy
 

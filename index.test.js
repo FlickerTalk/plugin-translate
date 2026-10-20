@@ -143,6 +143,13 @@ describe("the catalogue", () => {
     }
   });
 
+  it("says in one sentence, in every language, that it cannot translate here", () => {
+    for (const lang of LANGUAGES) {
+      const sentence = catalogueOf(lang).cannot.trim();
+      expect(sentence.slice(0, -1), lang).not.toMatch(/[.。।!?！？]/);
+    }
+  });
+
   it("tells the size of a download before it starts, in every language", () => {
     expect(t("en", "downloadText", { from: "German", to: "Spanish" })).toContain("about 30 MB");
     for (const lang of LANGUAGES) expect(catalogueOf(lang).downloadText, lang).toContain("30");
@@ -398,10 +405,14 @@ describe("the plugin", () => {
     expect(core.ft.translate.translate).not.toHaveBeenCalled();
   });
 
-  it("says in one sentence that this phone cannot translate, and offers nothing else", async () => {
+  // An empty list is also what the core answers when the user did not allow the plugin to
+  // translate: the sentence covers both, as the plugin cannot tell them apart.
+  it("says in one sentence that it cannot translate here, and offers nothing else", async () => {
     core.ft.translate.languages.mockResolvedValueOnce([]);
     await core.open({ text: "Guten Morgen" });
-    expect(inside().querySelector(".cannot").textContent.trim()).toBe("This phone cannot translate.");
+    expect(inside().querySelector(".cannot").textContent.trim()).toBe(
+      "Translation is not available: this phone cannot translate, or the Translator was not allowed to.",
+    );
     expect(inside().querySelector("ion-button")).toBeNull();
     expect(inside().querySelector("ion-select, ion-textarea, ion-footer")).toBeNull();
     expect(core.ft.translate.detect).not.toHaveBeenCalled();
@@ -410,7 +421,9 @@ describe("the plugin", () => {
   it("says the same on an app with no translator at all", async () => {
     delete core.ft.translate;
     await core.open({ text: "Guten Morgen", lang: "es" });
-    expect(inside().querySelector(".cannot").textContent.trim()).toBe("Este teléfono no puede traducir.");
+    expect(inside().querySelector(".cannot").textContent.trim()).toBe(
+      "La traducción no está disponible: este teléfono no puede traducir o el Traductor no tiene permiso.",
+    );
   });
 
   it("hands the translation to the composer, and only once there is one", async () => {
