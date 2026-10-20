@@ -204,17 +204,21 @@ describe("the manifest", () => {
   const LOCALES = ["es", "pt", "fr", "de", "it", "ro", "ru", "uk", "pl", "tr", "ar", "hi", "bn", "id", "vi", "th", "ja", "ko", "zh-CN", "zh-TW"];
   const codePoints = (text) => [...text].length;
 
+  // 1.1.0 (2026-10-20, translation in the chat): installing the tool switches on, in every chat,
+  // a Translate link under received messages and a translate button in the composer
+  // (plugin-sdk, `provides` in module.schema.json). The app does that itself; this window stays.
   it("is a tool that opens a message's text, translates on the phone and fills the composer", () => {
     const { locales, ...rest } = manifest;
     expect(rest).toEqual({
       id: "com.flickertalk.translate",
       name: "Translator",
-      version: "1.0.0",
+      version: "1.1.0",
       icon: "language-outline",
       minCoreVersion: "1.7.0",
       components: ["ft-translate"],
       permissions: { messages: "given", translate: true, send: "propose", storage: "small" },
       opens: ["text/plain"],
+      provides: ["translate"],
       summary: "Translates a message or your draft on the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.",
     });
     expect(locales).toBeTypeOf("object");

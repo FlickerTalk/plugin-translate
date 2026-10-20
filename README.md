@@ -3,6 +3,12 @@
 **Translator** for [FlickerTalk](https://flickertalk.com). Translates a message or your draft on
 the phone. Language packs are downloaded once from Apple or Google; the text never leaves the phone.
 
+Installing it also turns on translation in your chats (from 1.1.0, with FlickerTalk 1.7.0 or newer):
+a **Translate** link under each message you receive, and a button in the composer to send your
+draft in the other person's language. The app does that with the same translator on the phone
+(`"provides": ["translate"]` in `module.json`). The Translator's own window is still there for any
+text.
+
 - **A message you received**: hold it, choose *Open with a plugin* → Translator. The text comes
   filled in, the phone tells its language, and it is translated into the app's language when you
   press **Translate**.
