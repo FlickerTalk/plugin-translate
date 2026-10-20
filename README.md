@@ -5,25 +5,21 @@ the phone. Language packs are downloaded once from Apple or Google; the text nev
 
 ## In the chat
 
-From 1.1.0 (FlickerTalk 1.7.0 or newer) the Translator works inside your chats, through the chat's
-hooks (`hooks` in `module.json`):
+From 1.1.0 (FlickerTalk 1.7.0 or newer) the Translator works inside your conversations, through
+their hooks (`hooks` in `module.json`). The chat itself looks as it always does:
 
-- **The chat's language** is told on its own: when you open a chat that has none, the Translator
-  looks at the last messages you received there and names their language, without a window or a
-  download. The icon in the chat's header opens its page to change it: the chat's language (or
-  *None*) and two switches, on as soon as a language is chosen: **Translate what I receive** (each
-  message you get while the chat is open arrives translated into your language) and **Translate
-  what I send** (what you write goes in the chat's language when you press send). If the languages
-  are not on the phone yet, it asks once before downloading them. **Remove** turns it all off.
-- **Translate** under a message you received, in a chat in another language: one tap, and the
-  translation takes the place of the text, with *See original* to go back. Nothing opens. A
-  message already in your language says so.
-- **Translate** in the composer: your draft in the chat's language replaces it, and you can go
-  back to your text before sending. With no chat language yet, it asks for one first and keeps it.
+- **Translate** inside each message you receive (unless the conversation is in your language): one
+  tap, and the translation takes the place of the text, with *See original* to go back. Nothing
+  opens. A message already in your language says so.
+- **Translation** on the contact's page (or the circle's): the conversation's **Language**, told on
+  its own from the last messages you received there ("French (detected)") or chosen by you, or
+  *None*; **Translate what I receive** (each message arrives translated, with *See original*); and
+  **Send translated** (what you write goes in the conversation's language when you press send).
+  If a language is not on the phone yet, it asks before downloading it.
 
 When a language is not on the phone yet, the app asks "Download German? About 30 MB, once." and
-the Translator goes ahead only on yes. It comes into view only for the chat's page and to pick a
-language. Nothing is translated outside the chat you have open.
+the Translator goes ahead only on yes. It never opens a window for any of this, and nothing is
+translated outside the conversation you have open.
 
 ## Its own window
 
@@ -57,11 +53,12 @@ Language packs are downloaded once from Apple or Google, which therefore see whi
 asked for and from which IP address; never the text.
 
 The plugin itself has no network and does not see the conversation or who it is with. It only gets
-the text **you** hand it with a gesture, the messages of the chat you have open when you switched
-on its translation there, and the last texts received in a chat you open that has no language yet,
-to tell that language on the phone (`messages: given`). It keeps the last language you translated into and,
-for each chat, under a key that says nothing of who it is with, the chat's language and the two
-switches. Translations are kept by the app, on the phone, with the message.
+the text **you** hand it with a gesture, the messages of the conversation you have open when you
+switched on its translation there, and the last texts received in a conversation that has no
+language yet, to tell that language on the phone (`messages: given`). It keeps the last language
+you translated into and, for each conversation, under a key that says nothing of who it is with,
+its language and the two switches. Translations are kept by the app, on the phone, with the
+message.
 
 ## What it uses from the core
 
@@ -69,12 +66,11 @@ switches. Translations are kept by the app, on the phone, with the message.
 | -------------- | --------------------------------------------------------------------------------- |
 | `ft.translate` | the languages of this phone, detecting a text's language, whether a pair is ready, downloading and removing packs, and the translation (`translate` permission) |
 | `ft.say`       | *Use in chat*: the translation in the composer (`send: propose`)                  |
-| `ft.onHook`    | the chat's hooks: a received message, the composer, and the chat's language       |
-| `ft.show`      | coming into view during a hook, for the chat's page or to pick a language         |
+| `ft.onHook`    | the conversation's hooks: a received message, what is sent, the Translation group |
 | `ft.notify`    | a short notice from a hook the user started ("already in your language")          |
 | `ft.store`     | the last language translated into                                                 |
-| `ft.records`   | each chat's language and switches, by the chat's opaque key                       |
-| `onOpen`       | `text` from a message, `lang`, and `hook: "chat"` with `chat` for the chat's page |
+| `ft.records`   | each conversation's language and switches, by its opaque key                      |
+| `onOpen`       | `text` from a message, `lang`                                                     |
 
 The flow is the one the Plugin API describes: `detect` → `status` → `prepare` when the pair is
 `downloadable` → `translate`. It needs core **1.7.0** (`minCoreVersion`). The contract is in
@@ -83,8 +79,9 @@ The flow is the one the Plugin API describes: `detect` → `status` → `prepare
 Everything is drawn with the Ionic the app lends to the frame, and nothing else: the element is an
 `ion-page` with `ion-header > ion-toolbar`, `ion-content` and `ion-footer > ion-toolbar >
 ion-buttons > ion-button`, every icon an `ion-icon` the app registers by name, and no style of its
-own. The chat's page is an `ion-list` with an `ion-select` and two `ion-toggle`s; the window has
-the languages as `ion-select`s, the text in an `ion-textarea` and the translation in an `ion-card`.
+own. The window has the languages as `ion-select`s, the text in an `ion-textarea` and the
+translation in an `ion-card`. The Translation group on the contact's page is drawn by the app,
+from the fields the manifest declares.
 Downloads and removals are asked with `ion-alert` and notices go in `ion-toast` or the app's own
 toast (`confirm()` does nothing in the frame). No title or close button of its own: the app's
 window has both. The package carries no Ionic: `@ionic/core` is only a `devDependency`, so the
