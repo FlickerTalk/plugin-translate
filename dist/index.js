@@ -63,25 +63,37 @@ export function sortLanguages(tags, lang = "en") {
     .sort((a, b) => a.name.localeCompare(b.name, writtenIn(lang)));
 }
 
-/** The script a region writes Chinese in, for an app language such as `zh-TW`. */
+/** The script a region writes Chinese in, for a tag such as `zh-TW`. */
 const REGION_SCRIPT = { tw: "hant", hk: "hant", mo: "hant", cn: "hans", sg: "hans" };
 
+/** A tag's script, written or implied: its script subtag (`zh-Hant`, `sr-Latn`), else for Chinese
+ *  the one its region writes (`zh-TW` → Traditional) or Simplified for `zh` alone, as iOS and ML
+ *  Kit mean it. Undefined when the tag says none. */
+function scriptOf(subtags) {
+  const [primary, ...rest] = subtags;
+  const written = rest.find((part) => /^[a-z]{4}$/.test(part));
+  if (written) return written;
+  if (primary !== "zh") return undefined;
+  const region = rest.find((part) => /^[a-z]{2}$/.test(part));
+  return region ? REGION_SCRIPT[region] : "hans";
+}
+
 /**
- * The tag of `languages` that stands for `wanted` (the app's language, or a detected one): the
- * same tag, else one in the same script (`zh-TW` → `zh-Hant`), else the language alone, else any
- * with the same first subtag. Null when this phone has none.
+ * The tag of `languages` that stands for `wanted` (the app's language, or a detected one), in this
+ * order: the same tag (`zh-TW`); else an equivalent one, same language in the same script
+ * (`zh-Hant` ≡ `zh-TW`, `zh-Hans` ≡ `zh` ≡ `zh-CN`); else the language alone; else any tag of the
+ * same language (`en` → `en-GB`, `pt` → `pt-BR`). Null when this phone has none.
  */
 export function matchLanguage(languages, wanted) {
   if (!wanted) return null;
-  const parts = String(wanted).toLowerCase().split(/[-_]/);
-  const [primary] = parts;
-  const lower = (tag) => tag.toLowerCase();
-  const same = languages.filter((tag) => lower(tag).split("-")[0] === primary);
-  const script = parts.find((part) => part.length === 4) ?? REGION_SCRIPT[parts.find((part, index) => index > 0 && part.length === 2)];
+  const subtags = (tag) => String(tag).toLowerCase().split(/[-_]/);
+  const want = subtags(wanted);
+  const same = languages.filter((tag) => subtags(tag)[0] === want[0]);
+  const script = scriptOf(want);
   return (
-    languages.find((tag) => lower(tag) === parts.join("-")) ??
-    (script ? same.find((tag) => lower(tag).split("-").includes(script)) : undefined) ??
-    same.find((tag) => lower(tag) === primary) ??
+    same.find((tag) => subtags(tag).join("-") === want.join("-")) ??
+    (script ? same.find((tag) => scriptOf(subtags(tag)) === script) : undefined) ??
+    same.find((tag) => subtags(tag).length === 1) ??
     same[0] ??
     null
   );

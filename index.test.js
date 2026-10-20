@@ -64,6 +64,29 @@ describe("matching a language to the ones this phone has", () => {
     expect(matchLanguage(["zh"], "zh-TW")).toBe("zh");
   });
 
+  // iOS lists `Locale.Language.minimalIdentifier`s: `zh` (Simplified), `zh-TW` (Traditional),
+  // `en-GB`, `en-US`, `pt-BR`; Android lists `zh` only.
+  const iphone = ["en-GB", "en-US", "es", "pt-BR", "zh", "zh-TW"];
+
+  it("takes an equivalent form of a Chinese tag when the tag itself is not there", () => {
+    expect(matchLanguage(iphone, "zh-TW")).toBe("zh-TW");
+    expect(matchLanguage(iphone, "zh-CN")).toBe("zh");
+    expect(matchLanguage(iphone, "zh-Hant")).toBe("zh-TW");
+    expect(matchLanguage(iphone, "zh-HK")).toBe("zh-TW");
+    expect(matchLanguage(iphone, "zh-Hans")).toBe("zh");
+    expect(matchLanguage(["zh-TW", "zh-CN"], "zh-Hans")).toBe("zh-CN");
+    expect(matchLanguage(["zh-TW", "zh-CN"], "zh")).toBe("zh-CN");
+    expect(matchLanguage(["zh-Hant", "zh-Hans"], "zh")).toBe("zh-Hans");
+    expect(matchLanguage(["zh-Hant", "zh-Hans"], "zh-HK")).toBe("zh-Hant");
+  });
+
+  it("takes any tag of the same language when there is neither the tag nor the language alone", () => {
+    expect(matchLanguage(iphone, "en")).toBe("en-GB");
+    expect(matchLanguage(iphone, "pt")).toBe("pt-BR");
+    expect(matchLanguage(iphone, "pt-BR")).toBe("pt-BR");
+    expect(matchLanguage(["sr-Latn-RS", "sr-Cyrl"], "sr-Cyrl-RS")).toBe("sr-Cyrl");
+  });
+
   it("gives nothing when the phone does not have it", () => {
     expect(matchLanguage(apple, "bn")).toBeNull();
     expect(matchLanguage(apple, "")).toBeNull();
@@ -90,6 +113,14 @@ describe("where a translation goes by default", () => {
     expect(defaultTarget(languages, { lang: "es", kept: "de", source: "es", fromMessage: true })).toBe("de");
     expect(defaultTarget(languages, { lang: "es", kept: null, source: "es", fromMessage: true })).toBe("en");
     expect(defaultTarget(["es", "en"], { lang: "en", kept: null, source: "en", fromMessage: true })).toBe("es");
+  });
+
+  it("is found among the tags an iPhone lists", () => {
+    const iphone = ["en-GB", "en-US", "es", "zh", "zh-TW"];
+    expect(defaultTarget(iphone, { lang: "zh-TW", kept: null, source: "es", fromMessage: true })).toBe("zh-TW");
+    expect(defaultTarget(iphone, { lang: "zh-CN", kept: null, source: "es", fromMessage: true })).toBe("zh");
+    expect(defaultTarget(iphone, { lang: "en", kept: null, source: "es", fromMessage: true })).toBe("en-GB");
+    expect(defaultTarget(iphone, { lang: "bn", kept: null, source: null, fromMessage: true })).toBe("en-GB");
   });
 
   it("is English, or the first there is, when the app's language is not on this phone", () => {
@@ -356,6 +387,17 @@ describe("the plugin", () => {
     // Nothing is translated until the user asks.
     expect(core.ft.translate.translate).not.toHaveBeenCalled();
     expect(result().hidden).toBe(true);
+  });
+
+  it("matches the app's language and the detected one to the tags an iPhone lists", async () => {
+    core = fakeCore({ languages: ["en-GB", "en-US", "es", "zh", "zh-TW"], installed: ["en-GB", "zh-TW"] });
+    globalThis.ft = core.ft;
+    document.body.innerHTML = "";
+    make();
+    await core.open({ text: "Hello there", lang: "zh-TW" });
+    expect(field("to").value).toBe("zh-TW");
+    await press("translate");
+    expect(core.ft.translate.translate).toHaveBeenCalledWith("Hello there", "en-GB", "zh-TW");
   });
 
   it("translates on the phone when the user presses Translate, and shows the translation", async () => {
