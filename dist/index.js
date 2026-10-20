@@ -4,9 +4,11 @@
 // never leaves the phone, and the plugin has no network. It keeps the last language it translated
 // into and, for each chat, the chat's language and whether to translate on its own.
 //
-// From 1.1.0 it binds to the chat's hooks (plan §8): Translate on a held message (a line under it)
-// and in the composer (the draft, translated), and the chat's language in the chat's options. The
-// app runs it hidden; it comes into view (`ft.show()`) only to ask the user something.
+// From 1.1.0 it binds to the chat's hooks (plan §8): Translate on a received message (its text,
+// translated) and in the composer (the draft, translated), and the chat's language, told from what
+// was received or chosen on its page. The app runs it hidden. A download is a question the app asks
+// in its alert (`ask`), then runs the hook again with the answer; the window comes into view
+// (`ft.show()`) only for the chat's page and to pick a language.
 
 import { t } from "./i18n.js";
 
@@ -213,7 +215,6 @@ class Translator extends HTMLElement {
     this.autoMessage = false;
     this.autoComposer = false;
     this.inView = false;
-    this.hookText = "";
     this.pending = null;
     this.picking = null;
     this.pickLang = null;
@@ -286,7 +287,7 @@ class Translator extends HTMLElement {
       if (hook?.chat) this.chat = hook.chat;
       if (hook?.name === "message") return await this.hookMessage(hook, run);
       if (hook?.name === "composer") return await this.hookComposer(hook, run);
-      if (hook?.name === "chat") return await this.hookChat(hook, run);
+      if (hook?.name === "chat") return run.manual ? await this.hookChat(hook, run) : await this.chatLanguage(hook);
       return null;
     } catch {
       return null;
@@ -336,8 +337,7 @@ class Translator extends HTMLElement {
     const to = matchLanguage(languages, this.language);
     if (!to) return this.tell(run, "unsupported");
     if (from === to) return this.tell(run, "same", { language: languageWord(from, this.language) });
-    const translated = await this.translateFor(run, text, from, to);
-    return translated ? { text: translated } : null;
+    return this.translateFor(hook, run, text, { from, to, foreign: from, asks: run.manual });
   }
 
   /** The draft in the chat's language. A chat with none: the user picks it (in view), and it is
@@ -359,8 +359,24 @@ class Translator extends HTMLElement {
     const from = (await this.detectIn(text, languages)) ?? matchLanguage(languages, this.language);
     if (!from) return this.tell(run, "notDetected");
     if (from === to) return run.manual ? this.tell(run, "same", { language: languageWord(to, this.language) }) : { text };
-    const translated = await this.translateFor(run, text, from, to);
-    return translated ? { text: translated } : null;
+    // The user pressed send or the button: a download is asked either way.
+    return this.translateFor(hook, run, text, { from, to, foreign: to, asks: true });
+  }
+
+  /** The chat's language, told on its own from the last texts received (`manual: false`): the one
+   *  the user chose if there is one, else the one the phone tells, kept for the chat. No window
+   *  and no download. */
+  async chatLanguage(hook) {
+    const languages = await this.loadLanguages();
+    if (languages.length === 0) return null;
+    const kept = await readChat(hook.chat);
+    if (kept && languages.includes(kept.lang)) return { lang: kept.lang };
+    const text = [...String(hook.text ?? "")].slice(0, MAX_CHARS).join("");
+    if (!text.trim()) return null;
+    const lang = await this.detectIn(text, languages);
+    if (!lang) return null;
+    await writeChat(hook.chat, { lang, ...OFF });
+    return { lang };
   }
 
   /** The chat's page, in view: its language and the two switches; the answer is what to do on its
@@ -374,27 +390,24 @@ class Translator extends HTMLElement {
     return answer;
   }
 
-  /** status → (download, in view, once the user says so) → translate. The translation, or null. */
-  async translateFor(run, text, from, to) {
+  /** status → (a download the app asks about, then a second run with the answer) → translate.
+   *  `{ text }`, `{ ask }` or null. The question names the `foreign` language: the message's, or
+   *  the chat's for a draft. */
+  async translateFor(hook, run, text, { from, to, foreign, asks }) {
     const translator = globalThis.ft.translate;
     const state = await call(() => translator.status(from, to), "unsupported");
     if (state !== "installed" && state !== "downloadable") return this.tell(run, "unsupported");
     if (state === "downloadable") {
-      if (!run.manual) return null;
-      this.comeUp(run);
-      this.hookText = text;
-      this.working = null;
-      this.warning = "";
-      this.show("hook");
-      if (!(await this.agreeToDownload(from, to))) return null;
-      this.busy("downloading");
+      if (hook.answer !== true) {
+        if (!asks) return null;
+        return { ask: { text: this.words("downloadAsk", { language: languageWord(foreign, this.language) }) } };
+      }
       const ready = await call(() => translator.prepare(from, to), false);
       if (ready !== true) return this.tell(run, "noDownload");
-      this.busy("translating");
     }
     const translated = await call(() => translator.translate(text, from, to), null);
     if (typeof translated !== "string" || !translated) return this.tell(run, "failed");
-    return translated;
+    return { text: translated };
   }
 
   /** Asks for the chat's language, in view; the tag, or null when the user backs out. */
@@ -454,14 +467,14 @@ class Translator extends HTMLElement {
     const settings = { lang, message: this.autoMessage, composer: this.autoComposer };
     await writeChat(this.chat, settings);
     this.chatSaved = settings;
-    this.finishChat({ auto: { message: settings.message, composer: settings.composer } });
+    this.finishChat({ lang, auto: { message: settings.message, composer: settings.composer } });
   }
 
   /** Remove: the chat has no language any more, and nothing is translated on its own. */
   async removeChat() {
     await forgetChat(this.chat);
     this.chatSaved = null;
-    this.finishChat({ auto: { ...OFF } });
+    this.finishChat({ lang: null, auto: { ...OFF } });
   }
 
   /** Hands the chat hook its answer; with no run waiting (the window opened alone), closes. */
@@ -687,7 +700,6 @@ class Translator extends HTMLElement {
     else if (this.screen === "cannot") this.paintCannot();
     else if (this.screen === "chat") this.paintChat();
     else if (this.screen === "pick") this.paintPick();
-    else if (this.screen === "hook") this.paintHook();
     else this.innerHTML = `<ion-content class="ion-padding ion-text-center"><ion-spinner aria-hidden="true"></ion-spinner></ion-content>`;
   }
 
@@ -820,15 +832,6 @@ class Translator extends HTMLElement {
         <ion-buttons slot="end"><ion-button fill="solid" color="primary" data-act="pickTranslate">${icon("language-outline", "start")}${escape(this.words("translate"))}</ion-button></ion-buttons>
       </ion-toolbar></ion-footer>`;
     this.querySelector('[data-field="pickLang"]').value = this.pickLang;
-  }
-
-  /** A hook's text while the phone downloads or translates it, in view. */
-  paintHook() {
-    this.innerHTML = `<ion-content class="ion-padding">
-        <ion-card><ion-card-content><p dir="auto">${lines(this.hookText)}</p></ion-card-content></ion-card>
-        <div class="status" role="status" aria-live="polite"></div>
-      </ion-content>`;
-    this.paintStatus();
   }
 
   paintPacks() {

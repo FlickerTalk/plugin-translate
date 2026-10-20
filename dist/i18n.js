@@ -43,6 +43,7 @@ const CATALOGUE = {
     save: "Save",
     chatNote: "While this chat is open, what you receive is translated into your language and what you send into the chat's. Each language is downloaded once from Apple or Google, about 30 MB; your text never leaves the phone.",
     notDetected: "Could not tell the language of this text.",
+    downloadAsk: "Download {language}? About 30 MB, once.",
   },
   es: {
     title: "Traductor",
@@ -83,6 +84,7 @@ const CATALOGUE = {
     save: "Guardar",
     chatNote: "Mientras este chat está abierto, lo que recibes se traduce a tu idioma y lo que envías, al del chat. Cada idioma se descarga una sola vez de Apple o Google, unos 30 MB; tu texto nunca sale del teléfono.",
     notDetected: "No se ha reconocido el idioma de este texto.",
+    downloadAsk: "¿Descargar {language}? Unos 30 MB, una vez.",
   },
   pt: {
     title: "Tradutor",
@@ -123,6 +125,7 @@ const CATALOGUE = {
     save: "Salvar",
     chatNote: "Enquanto este chat estiver aberto, o que você recebe é traduzido para o seu idioma e o que você envia, para o do chat. Cada idioma é baixado uma vez da Apple ou do Google, cerca de 30 MB; o seu texto nunca sai do telefone.",
     notDetected: "Não foi possível reconhecer o idioma deste texto.",
+    downloadAsk: "Baixar {language}? Cerca de 30 MB, uma vez.",
   },
   fr: {
     title: "Traducteur",
@@ -163,6 +166,7 @@ const CATALOGUE = {
     save: "Enregistrer",
     chatNote: "Tant que cette discussion est ouverte, ce que vous recevez est traduit dans votre langue et ce que vous envoyez dans celle de la discussion. Chaque langue est téléchargée une fois depuis Apple ou Google, environ 30 Mo ; votre texte ne quitte jamais le téléphone.",
     notDetected: "Impossible de reconnaître la langue de ce texte.",
+    downloadAsk: "Télécharger cette langue : {language} ? Environ 30 Mo, une seule fois.",
   },
   de: {
     title: "Übersetzer",
@@ -203,6 +207,7 @@ const CATALOGUE = {
     save: "Speichern",
     chatNote: "Solange dieser Chat geöffnet ist, wird Empfangenes in deine Sprache übersetzt und Gesendetes in die des Chats. Jede Sprache wird einmal von Apple oder Google geladen, etwa 30 MB; dein Text verlässt das Telefon nie.",
     notDetected: "Die Sprache dieses Textes wurde nicht erkannt.",
+    downloadAsk: "{language} herunterladen? Etwa 30 MB, einmalig.",
   },
   it: {
     title: "Traduttore",
@@ -243,6 +248,7 @@ const CATALOGUE = {
     save: "Salva",
     chatNote: "Finché questa chat è aperta, ciò che ricevi viene tradotto nella tua lingua e ciò che invii in quella della chat. Ogni lingua si scarica una volta da Apple o Google, circa 30 MB; il tuo testo non lascia mai il telefono.",
     notDetected: "Impossibile riconoscere la lingua di questo testo.",
+    downloadAsk: "Scaricare questa lingua: {language}? Circa 30 MB, una sola volta.",
   },
   ro: {
     title: "Traducător",
@@ -283,6 +289,7 @@ const CATALOGUE = {
     save: "Salvează",
     chatNote: "Cât timp această conversație este deschisă, ce primești se traduce în limba ta, iar ce trimiți, în limba conversației. Fiecare limbă se descarcă o singură dată de la Apple sau Google, aproximativ 30 MB; textul tău nu părăsește niciodată telefonul.",
     notDetected: "Nu s-a putut recunoaște limba acestui text.",
+    downloadAsk: "Descarci limba {language}? Aproximativ 30 MB, o singură dată.",
   },
   ru: {
     title: "Переводчик",
@@ -323,6 +330,7 @@ const CATALOGUE = {
     save: "Сохранить",
     chatNote: "Пока этот чат открыт, входящие сообщения переводятся на ваш язык, а исходящие — на язык чата. Каждый язык загружается один раз от Apple или Google, около 30 МБ; ваш текст никогда не покидает телефон.",
     notDetected: "Не удалось определить язык этого текста.",
+    downloadAsk: "Скачать язык: {language}? Около 30 МБ, один раз.",
   },
   uk: {
     title: "Перекладач",
@@ -363,6 +371,7 @@ const CATALOGUE = {
     save: "Зберегти",
     chatNote: "Поки цей чат відкритий, вхідні повідомлення перекладаються вашою мовою, а вихідні — мовою чату. Кожна мова завантажується один раз від Apple або Google, близько 30 МБ; ваш текст ніколи не залишає телефон.",
     notDetected: "Не вдалося визначити мову цього тексту.",
+    downloadAsk: "Завантажити мову: {language}? Близько 30 МБ, один раз.",
   },
   pl: {
     title: "Tłumacz",
@@ -403,6 +412,7 @@ const CATALOGUE = {
     save: "Zapisz",
     chatNote: "Gdy ten czat jest otwarty, to, co otrzymujesz, jest tłumaczone na twój język, a to, co wysyłasz — na język czatu. Każdy język pobiera się raz od Apple lub Google, około 30 MB; twój tekst nigdy nie opuszcza telefonu.",
     notDetected: "Nie udało się rozpoznać języka tego tekstu.",
+    downloadAsk: "Pobrać język: {language}? Około 30 MB, jeden raz.",
   },
   tr: {
     title: "Çevirmen",
@@ -443,6 +453,7 @@ const CATALOGUE = {
     save: "Kaydet",
     chatNote: "Bu sohbet açıkken gelen mesajlar dilinize, gönderdikleriniz ise sohbetin diline çevrilir. Her dil Apple'dan veya Google'dan bir kez indirilir, yaklaşık 30 MB; metniniz telefondan asla çıkmaz.",
     notDetected: "Bu metnin dili tanınamadı.",
+    downloadAsk: "{language} indirilsin mi? Yaklaşık 30 MB, bir kez.",
   },
   ar: {
     title: "المترجم",
@@ -483,6 +494,7 @@ const CATALOGUE = {
     save: "حفظ",
     chatNote: "ما دامت هذه المحادثة مفتوحة، يُترجَم ما تستلمه إلى لغتك وما ترسله إلى لغة المحادثة. تُنزَّل كل لغة مرة واحدة من Apple أو Google، نحو 30 ميغابايت؛ ولا يغادر نصك الهاتف أبدًا.",
     notDetected: "تعذّر التعرّف على لغة هذا النص.",
+    downloadAsk: "تنزيل {language}؟ نحو 30 ميغابايت، مرة واحدة.",
   },
   hi: {
     title: "अनुवादक",
@@ -523,6 +535,7 @@ const CATALOGUE = {
     save: "सहेजें",
     chatNote: "जब तक यह चैट खुली है, आपको मिलने वाले संदेशों का अनुवाद आपकी भाषा में और आपके भेजे संदेशों का अनुवाद चैट की भाषा में होता है। हर भाषा Apple या Google से एक बार डाउनलोड होती है, लगभग 30 MB; आपका टेक्स्ट कभी फ़ोन से बाहर नहीं जाता।",
     notDetected: "इस टेक्स्ट की भाषा पहचानी नहीं जा सकी।",
+    downloadAsk: "{language} डाउनलोड करें? लगभग 30 MB, एक बार।",
   },
   bn: {
     title: "অনুবাদক",
@@ -563,6 +576,7 @@ const CATALOGUE = {
     save: "সংরক্ষণ করুন",
     chatNote: "এই চ্যাট খোলা থাকা অবস্থায় আপনি যা পান তা আপনার ভাষায় এবং যা পাঠান তা চ্যাটের ভাষায় অনুবাদ হয়। প্রতিটি ভাষা Apple বা Google থেকে একবার ডাউনলোড হয়, প্রায় 30 MB; আপনার লেখা কখনো ফোনের বাইরে যায় না।",
     notDetected: "এই লেখার ভাষা চেনা যায়নি।",
+    downloadAsk: "{language} ডাউনলোড করবেন? প্রায় 30 MB, একবার।",
   },
   id: {
     title: "Penerjemah",
@@ -603,6 +617,7 @@ const CATALOGUE = {
     save: "Simpan",
     chatNote: "Selama obrolan ini terbuka, yang Anda terima diterjemahkan ke bahasa Anda dan yang Anda kirim ke bahasa obrolan. Setiap bahasa diunduh sekali dari Apple atau Google, sekitar 30 MB; teks Anda tidak pernah keluar dari ponsel.",
     notDetected: "Bahasa teks ini tidak dapat dikenali.",
+    downloadAsk: "Unduh bahasa {language}? Sekitar 30 MB, sekali saja.",
   },
   vi: {
     title: "Trình dịch",
@@ -643,6 +658,7 @@ const CATALOGUE = {
     save: "Lưu",
     chatNote: "Khi cuộc trò chuyện này đang mở, tin nhắn bạn nhận được sẽ được dịch sang ngôn ngữ của bạn và tin nhắn bạn gửi sẽ được dịch sang ngôn ngữ của cuộc trò chuyện. Mỗi ngôn ngữ được tải một lần từ Apple hoặc Google, khoảng 30 MB; văn bản của bạn không bao giờ rời khỏi điện thoại.",
     notDetected: "Không nhận ra được ngôn ngữ của văn bản này.",
+    downloadAsk: "Tải xuống {language}? Khoảng 30 MB, một lần.",
   },
   th: {
     title: "แปลภาษา",
@@ -683,6 +699,7 @@ const CATALOGUE = {
     save: "บันทึก",
     chatNote: "ขณะที่แชทนี้เปิดอยู่ ข้อความที่คุณได้รับจะแปลเป็นภาษาของคุณ และข้อความที่คุณส่งจะแปลเป็นภาษาของแชท แต่ละภาษาดาวน์โหลดครั้งเดียวจาก Apple หรือ Google ประมาณ 30 MB และข้อความของคุณไม่เคยออกจากโทรศัพท์",
     notDetected: "ไม่สามารถระบุภาษาของข้อความนี้ได้",
+    downloadAsk: "ดาวน์โหลดภาษา{language}ไหม ประมาณ 30 MB ครั้งเดียว",
   },
   ja: {
     title: "翻訳",
@@ -723,6 +740,7 @@ const CATALOGUE = {
     save: "保存",
     chatNote: "このチャットを開いている間、受信したメッセージはあなたの言語に、送信するメッセージはチャットの言語に翻訳されます。各言語は Apple または Google から一度だけダウンロードされます（約 30 MB）。テキストが端末の外に出ることはありません。",
     notDetected: "このテキストの言語を判別できませんでした。",
+    downloadAsk: "{language}をダウンロードしますか？約 30 MB、1 回だけです。",
   },
   ko: {
     title: "번역기",
@@ -763,6 +781,7 @@ const CATALOGUE = {
     save: "저장",
     chatNote: "이 채팅이 열려 있는 동안 받은 메시지는 내 언어로, 보내는 메시지는 채팅 언어로 번역됩니다. 각 언어는 Apple 또는 Google에서 한 번만 다운로드되며 약 30MB입니다. 텍스트는 휴대폰 밖으로 나가지 않습니다.",
     notDetected: "이 텍스트의 언어를 알 수 없습니다.",
+    downloadAsk: "{language} 언어 팩을 다운로드할까요? 약 30MB, 한 번만 받습니다.",
   },
   "zh-CN": {
     title: "翻译",
@@ -803,6 +822,7 @@ const CATALOGUE = {
     save: "保存",
     chatNote: "此聊天打开期间，收到的消息会翻译成你的语言，发送的消息会翻译成聊天的语言。每种语言只需从 Apple 或 Google 下载一次，约 30 MB；你的文字永远不会离开手机。",
     notDetected: "无法识别此文本的语言。",
+    downloadAsk: "下载{language}？约 30 MB，只需一次。",
   },
   "zh-TW": {
     title: "翻譯",
@@ -843,6 +863,7 @@ const CATALOGUE = {
     save: "儲存",
     chatNote: "此聊天開啟期間，收到的訊息會翻譯成你的語言，傳送的訊息會翻譯成聊天的語言。每種語言只需從 Apple 或 Google 下載一次，約 30 MB；你的文字永遠不會離開手機。",
     notDetected: "無法辨識此文字的語言。",
+    downloadAsk: "下載{language}？約 30 MB，只需一次。",
   },
 };
 
