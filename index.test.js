@@ -1,9 +1,9 @@
 // The plugin's own tests (Plan §53, app#177): how it names and picks languages, and the flow of a
 // translation against a fake core, with the real Ionic the app lends the frame.
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
-import { AUTO, MAX_CHARS, defaultTarget, languageName, matchLanguage, sortLanguages, swapped, tooLong } from "./dist/index.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTO, MAX_CHARS, defaultTarget, languageName, languageWord, matchLanguage, sortLanguages, swapped, tooLong } from "./dist/index.js";
 import { LANGUAGES, catalogueOf, t } from "./dist/i18n.js";
 
 const HERE = import.meta.dirname;
@@ -15,6 +15,12 @@ describe("a language", () => {
     expect(languageName("de", "es")).toBe("Alemán");
     expect(languageName("es", "es")).toBe("Español");
     expect(languageName("zh-Hans", "en")).toBe("Simplified Chinese");
+  });
+
+  it("keeps the phone's own case inside a sentence", () => {
+    expect(languageWord("de", "es")).toBe("alemán");
+    expect(languageWord("de", "en")).toBe("German");
+    expect(languageWord("xx", "es")).toBe("xx");
   });
 
   it("keeps its tag when the phone has no name for it", () => {
@@ -215,5 +221,455 @@ describe("the image of the Apps grid", () => {
     expect(svg).toContain('viewBox="0 0 64 64"');
     expect(svg).toContain('fill="#2563EB"');
     expect(existsSync(join(HERE, "dist", "icon.svg"))).toBe(false);
+  });
+});
+
+/**
+ * A fake core, as the frame's `ft` would answer: a phone with four languages, English and Spanish
+ * already on it, that names a text's language by a word in it and "translates" by tagging it.
+ */
+function fakeCore({ languages = ["de", "en", "es", "fr"], installed = ["en", "es"] } = {}) {
+  const settings = new Map();
+  const handlers = [];
+  const kept = new Set(installed);
+  const words = { guten: "de", danke: "de", bonjour: "fr", hola: "es", hello: "en" };
+  return {
+    settings,
+    kept,
+    open: (opening) => Promise.all(handlers.map((handler) => handler({ text: "", dark: false, lang: "en", file: null, ref: null, reminder: null, live: false, ...opening }))),
+    ft: {
+      onOpen: (handler) => handlers.push(handler),
+      say: vi.fn(),
+      close: vi.fn(),
+      store: {
+        get: vi.fn(async (key) => settings.get(key) ?? null),
+        set: vi.fn(async (key, value) => (settings.set(key, value), true)),
+        forget: vi.fn(async (key) => settings.delete(key)),
+      },
+      translate: {
+        languages: vi.fn(async () => [...languages]),
+        detect: vi.fn(async (text) => Object.entries(words).find(([word]) => text.toLowerCase().includes(word))?.[1] ?? null),
+        status: vi.fn(async (from, to) => {
+          if (!languages.includes(from) || !languages.includes(to)) return "unsupported";
+          return kept.has(from) && kept.has(to) ? "installed" : "downloadable";
+        }),
+        prepare: vi.fn(async (from, to) => (kept.add(from), kept.add(to), true)),
+        remove: vi.fn(async (from) => kept.delete(from)),
+        translate: vi.fn(async (text, from, to) => `[${from}→${to}] ${text}`),
+      },
+    },
+  };
+}
+
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+const settle = async (times = 6) => {
+  for (let wait = 0; wait < times; wait += 1) await tick();
+};
+
+describe("the plugin", () => {
+  let core;
+  let element;
+  // In the page, not in a shadow root: Ionic's global styles do not cross a shadow boundary.
+  const inside = () => element;
+  const field = (name) => inside().querySelector(`[data-field="${name}"]`);
+  const act = (name) => inside().querySelector(`[data-act="${name}"]`);
+  const press = async (name, key) => {
+    inside().querySelector(`[data-act="${name}"]${key ? `[data-key="${key}"]` : ""}`).click();
+    await settle();
+  };
+  // Ionic moves a button's label to the native button inside it once it has drawn.
+  const label = (one) => one?.getAttribute("aria-label") ?? one?.shadowRoot?.querySelector("button")?.getAttribute("aria-label") ?? null;
+  /** What Ionic's select says when the user picks in it. */
+  const pick = async (name, value) => {
+    const select = field(name);
+    select.value = value;
+    select.dispatchEvent(new CustomEvent("ionChange", { bubbles: true, detail: { value } }));
+    await settle();
+  };
+  /** What Ionic's textarea says as the user types. */
+  const type = async (value) => {
+    const textarea = field("text");
+    textarea.value = value;
+    textarea.dispatchEvent(new CustomEvent("ionInput", { bubbles: true, detail: { value } }));
+    await settle();
+  };
+  /** The app's Ionic alert, answered as a tap on one of its buttons would. */
+  const answer = async (role) => {
+    let alert = null;
+    for (let wait = 0; wait < 50 && !(alert = document.querySelector("ion-alert")); wait += 1) await tick();
+    if (!alert) throw new Error("no alert");
+    await alert.dismiss(undefined, role);
+    await settle();
+    return alert;
+  };
+  const toast = async () => {
+    let one = null;
+    for (let wait = 0; wait < 50 && !(one = document.querySelector("ion-toast")); wait += 1) await tick();
+    return one;
+  };
+  const optionsOf = (name) => [...field(name).querySelectorAll("ion-select-option")].map((one) => [one.value, one.textContent]);
+  const result = () => inside().querySelector("ion-card.result");
+  const status = () => inside().querySelector(".status");
+
+  const make = () => {
+    element = document.createElement("ft-translate");
+    document.body.append(element);
+  };
+
+  beforeEach(() => {
+    core = fakeCore();
+    globalThis.ft = core.ft;
+    // The frame has no browser dialogs: confirm() and prompt() answer nothing there.
+    globalThis.confirm = globalThis.prompt = () => {
+      throw new Error("no browser dialogs in the frame");
+    };
+    document.body.innerHTML = "";
+    make();
+  });
+
+  afterEach(async () => {
+    for (const alert of document.querySelectorAll("ion-alert")) await alert.dismiss();
+    for (const one of document.querySelectorAll("ion-toast")) await one.dismiss();
+    delete globalThis.confirm;
+    delete globalThis.prompt;
+    delete globalThis.Ionicons;
+  });
+
+  it("shows the message it was handed, tells its language and sets the app's as the one to translate into", async () => {
+    await core.open({ text: "Guten Morgen", lang: "es" });
+    expect(field("text").tagName).toBe("ION-TEXTAREA");
+    expect(field("text").value).toBe("Guten Morgen");
+    expect(core.ft.translate.detect).toHaveBeenCalledWith("Guten Morgen");
+    expect(field("from").value).toBe(AUTO);
+    expect(optionsOf("from")[0]).toEqual([AUTO, "Alemán (detectado)"]);
+    expect(field("to").value).toBe("es");
+    // Every language of this phone, by its name in the app's language.
+    expect(optionsOf("to")).toEqual([["de", "Alemán"], ["es", "Español"], ["fr", "Francés"], ["en", "Inglés"]]);
+    expect(optionsOf("from").slice(1)).toEqual(optionsOf("to"));
+    // Nothing is translated until the user asks.
+    expect(core.ft.translate.translate).not.toHaveBeenCalled();
+    expect(result().hidden).toBe(true);
+  });
+
+  it("translates on the phone when the user presses Translate, and shows the translation", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen", lang: "en" });
+    await press("translate");
+    expect(core.ft.translate.status).toHaveBeenCalledWith("de", "en");
+    expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+    expect(core.ft.translate.translate).toHaveBeenCalledWith("Guten Morgen", "de", "en");
+    expect(result().hidden).toBe(false);
+    expect(result().textContent).toBe("[de→en] Guten Morgen");
+    expect(result().querySelector("[lang]").getAttribute("lang")).toBe("en");
+  });
+
+  it("asks before downloading a language, with its rough size, and downloads only on yes", async () => {
+    await core.open({ text: "Guten Morgen", lang: "es" });
+    await press("translate");
+    const asked = await answer("cancel");
+    expect(asked.message).toBe(t("es", "downloadText", { from: "alemán", to: "español" }));
+    expect(asked.message).toContain("30 MB");
+    expect(core.ft.translate.prepare).not.toHaveBeenCalled();
+    expect(core.ft.translate.translate).not.toHaveBeenCalled();
+
+    let finish;
+    core.ft.translate.prepare.mockImplementationOnce(() => new Promise((resolve) => (finish = resolve)));
+    await press("translate");
+    await answer("confirm");
+    expect(core.ft.translate.prepare).toHaveBeenCalledWith("de", "es");
+    // While the phone downloads: a spinner, and no second Translate.
+    expect(status().querySelector("ion-spinner")).not.toBeNull();
+    expect(status().textContent).toContain(t("es", "downloading"));
+    expect(act("translate").disabled).toBe(true);
+    finish(true);
+    await settle();
+    expect(core.ft.translate.translate).toHaveBeenCalledWith("Guten Morgen", "de", "es");
+    expect(status().querySelector("ion-spinner")).toBeNull();
+    expect(result().textContent).toBe("[de→es] Guten Morgen");
+    expect(act("translate").disabled).toBe(false);
+  });
+
+  it("says so when the language could not be downloaded, and translates nothing", async () => {
+    core.ft.translate.prepare.mockResolvedValueOnce(false);
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    await answer("confirm");
+    expect(status().textContent).toBe(t("en", "noDownload"));
+    expect(core.ft.translate.translate).not.toHaveBeenCalled();
+  });
+
+  it("says in one sentence that this phone cannot translate, and offers nothing else", async () => {
+    core.ft.translate.languages.mockResolvedValueOnce([]);
+    await core.open({ text: "Guten Morgen" });
+    expect(inside().querySelector(".cannot").textContent.trim()).toBe("This phone cannot translate.");
+    expect(inside().querySelector("ion-button")).toBeNull();
+    expect(inside().querySelector("ion-select, ion-textarea, ion-footer")).toBeNull();
+    expect(core.ft.translate.detect).not.toHaveBeenCalled();
+  });
+
+  it("says the same on an app with no translator at all", async () => {
+    delete core.ft.translate;
+    await core.open({ text: "Guten Morgen", lang: "es" });
+    expect(inside().querySelector(".cannot").textContent.trim()).toBe("Este teléfono no puede traducir.");
+  });
+
+  it("hands the translation to the composer, and only once there is one", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen" });
+    expect(act("say").disabled).toBe(true);
+    expect(act("swap").disabled).toBe(true);
+    await press("translate");
+    expect(act("say").disabled).toBe(false);
+    await press("say");
+    expect(core.ft.say).toHaveBeenCalledWith("[de→en] Guten Morgen");
+  });
+
+  it("swaps the languages and the texts", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    await press("swap");
+    expect(field("from").value).toBe("en");
+    expect(field("to").value).toBe("de");
+    expect(field("text").value).toBe("[de→en] Guten Morgen");
+    expect(result().textContent).toBe("Guten Morgen");
+    expect(core.ft.store.set).toHaveBeenLastCalledWith("to", "de");
+  });
+
+  it("keeps the last language translated into, for the user's own text next time", async () => {
+    await core.open({ lang: "en" });
+    expect(field("to").value).toBe("en");
+    await pick("to", "fr");
+    expect(core.ft.store.set).toHaveBeenCalledWith("to", "fr");
+
+    document.body.innerHTML = "";
+    make();
+    await core.open({ lang: "en" });
+    expect(field("to").value).toBe("fr");
+    // A message the user was handed still goes into the app's language.
+    await core.open({ text: "Hola", lang: "en" });
+    expect(field("to").value).toBe("en");
+  });
+
+  it("translates the user's own text into the language they pick", async () => {
+    await core.open({ lang: "es" });
+    expect(field("text").value).toBe("");
+    expect(act("translate").disabled).toBe(true);
+    await type("Hello, see you tomorrow");
+    expect(act("translate").disabled).toBe(false);
+    await pick("to", "fr");
+    await press("translate");
+    await answer("confirm");
+    expect(core.ft.translate.detect).toHaveBeenCalledWith("Hello, see you tomorrow");
+    expect(core.ft.translate.translate).toHaveBeenCalledWith("Hello, see you tomorrow", "en", "fr");
+    await press("say");
+    expect(core.ft.say).toHaveBeenCalledWith("[en→fr] Hello, see you tomorrow");
+  });
+
+  it("takes the language the user picks over the one the phone detected", async () => {
+    await core.open({ text: "Guten Morgen" });
+    await pick("from", "fr");
+    await press("translate");
+    await answer("confirm");
+    expect(core.ft.translate.translate).toHaveBeenCalledWith("Guten Morgen", "fr", "en");
+    expect(core.ft.translate.detect).toHaveBeenCalledTimes(1);
+  });
+
+  it("forgets a translation as soon as the text changes", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    await type("Danke schön");
+    expect(result().hidden).toBe(true);
+    expect(act("say").disabled).toBe(true);
+    expect(optionsOf("from")[0]).toEqual([AUTO, "Detect language"]);
+  });
+
+  it("asks the user to pick the language when the phone cannot tell it", async () => {
+    await core.open({ text: "Ciao a tutti" });
+    expect(optionsOf("from")[0]).toEqual([AUTO, "Detect language"]);
+    await press("translate");
+    expect(status().textContent).toBe(t("en", "unknown"));
+    expect(core.ft.translate.status).not.toHaveBeenCalled();
+  });
+
+  it("says when the text is already in the language asked for", async () => {
+    await core.open({ text: "Hola", lang: "en" });
+    await pick("to", "es");
+    await press("translate");
+    expect(status().textContent).toBe(t("en", "same", { language: "Spanish" }));
+    expect(core.ft.translate.status).not.toHaveBeenCalled();
+  });
+
+  it("says when this phone cannot translate between the two", async () => {
+    core.ft.translate.status.mockResolvedValueOnce("unsupported");
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    expect(status().textContent).toBe(t("en", "unsupported"));
+    expect(core.ft.translate.translate).not.toHaveBeenCalled();
+  });
+
+  it("keeps a text longer than the core takes, and says so, without asking the core", async () => {
+    await core.open({ text: "Guten Morgen ".repeat(400) });
+    await press("translate");
+    expect(status().textContent).toBe("Too long to translate: 5,000 characters at most.");
+    expect(core.ft.translate.status).not.toHaveBeenCalled();
+    expect(core.ft.translate.translate).not.toHaveBeenCalled();
+  });
+
+  it("says it could not translate in Ionic's toast when the phone gives nothing back", async () => {
+    core.kept.add("de");
+    core.ft.translate.translate.mockResolvedValueOnce(null);
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    expect((await toast())?.message).toBe("Could not translate.");
+    expect(result().hidden).toBe(true);
+  });
+
+  it("stays alive when a call to the core fails", async () => {
+    core.kept.add("de");
+    core.ft.translate.translate.mockRejectedValueOnce(new Error("gone"));
+    await core.open({ text: "Guten Morgen" });
+    await press("translate");
+    expect((await toast())?.message).toBe("Could not translate.");
+    expect(act("translate").disabled).toBe(false);
+  });
+
+  it("translates once for a double tap", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen" });
+    act("translate").click();
+    act("translate").click();
+    await settle();
+    expect(core.ft.translate.translate).toHaveBeenCalledTimes(1);
+  });
+
+  it("lists the languages downloaded on this phone and removes one once the user says so", async () => {
+    core.kept.add("de");
+    await core.open({ text: "Guten Morgen" });
+    await press("packs");
+    for (const tag of ["de", "es", "fr"]) expect(core.ft.translate.status).toHaveBeenCalledWith(tag, "en");
+    const rows = () => [...inside().querySelectorAll('ion-item[data-tag]')];
+    expect(rows().map((row) => row.dataset.tag)).toEqual(["de", "es"]);
+    expect(rows()[0].textContent).toContain("German");
+
+    await press("erase", "de");
+    const asked = await answer("cancel");
+    expect(asked.header).toBe("German");
+    expect(asked.message).toBe(t("en", "removeAsk"));
+    expect(core.ft.translate.remove).not.toHaveBeenCalled();
+
+    await press("erase", "de");
+    await answer("destructive");
+    expect(core.ft.translate.remove).toHaveBeenCalledWith("de", "en");
+    expect(rows().map((row) => row.dataset.tag)).toEqual(["es"]);
+    expect((await toast())?.message).toBe("Removed: German");
+
+    // Back where it was, with the text it had.
+    await press("back");
+    expect(field("text").value).toBe("Guten Morgen");
+  });
+
+  it("says where the languages are managed when the phone does not let the app remove them", async () => {
+    core.ft.translate.remove.mockResolvedValueOnce(false);
+    await core.open({});
+    await press("packs");
+    await press("erase", "es");
+    await answer("destructive");
+    expect((await toast())?.message).toBe(t("en", "notRemoved"));
+    expect([...inside().querySelectorAll("ion-item[data-tag]")].map((row) => row.dataset.tag)).toEqual(["es"]);
+  });
+
+  it("says when no language has been downloaded yet", async () => {
+    core.kept.delete("es");
+    await core.open({});
+    await press("packs");
+    expect(inside().querySelector(".empty").textContent.trim()).toBe(t("en", "packsEmpty"));
+  });
+
+  it("draws in the page in Ionic's header, content and footer, with no title or close of its own and no form", async () => {
+    await core.open({ text: "Guten Morgen" });
+    expect(element.shadowRoot).toBe(null);
+    expect(label(element.querySelector(':scope > ion-header > ion-toolbar ion-button[data-act="packs"]'))).toBe("Downloaded languages");
+    expect(element.querySelector(":scope > ion-content ion-select[data-field='from']")).not.toBeNull();
+    expect(element.querySelector(":scope > ion-content ion-select[data-field='to']")).not.toBeNull();
+    expect(element.querySelector(":scope > ion-content ion-textarea[data-field='text']")).not.toBeNull();
+    expect(element.querySelector(':scope > ion-content ion-button[data-act="translate"]').textContent).toContain("Translate");
+    expect(element.querySelector(":scope > ion-content ion-card.result")).not.toBeNull();
+    const footer = element.querySelector(":scope > ion-footer > ion-toolbar");
+    expect(footer.querySelector('ion-button[data-act="say"]').textContent).toContain("Use in chat");
+    expect(footer.querySelector('ion-button[data-act="swap"]').textContent).toContain("Swap");
+    // The app's window already has the name and the way out.
+    expect(element.querySelector("ion-title, [data-act='close'], form")).toBeNull();
+    expect(field("from").getAttribute("label")).toBe("From");
+    expect(field("to").getAttribute("label")).toBe("To");
+  });
+
+  // A browser refuses an element whose constructor gives it attributes (createElement throws).
+  it("is born with no attributes, and leaves the page like any element", () => {
+    expect(document.createElement("ft-translate").attributes).toHaveLength(0);
+    element.remove();
+    expect(element.isConnected).toBe(false);
+  });
+
+  it("draws an Ionicon the app lent by name with ion-icon, and the one it serves otherwise", async () => {
+    await core.open({});
+    expect(element.querySelector('[data-act="packs"] [slot="icon-only"]').getAttribute("style")).toContain("./icon/download-outline.svg");
+    globalThis.Ionicons = { map: new Map([["download-outline", "data:image/svg+xml;utf8,<svg></svg>"]]) };
+    await core.open({});
+    expect(element.querySelector('[data-act="packs"] ion-icon[slot="icon-only"]').getAttribute("name")).toBe("download-outline");
+  });
+});
+
+describe("the package", () => {
+  const dist = join(HERE, "dist");
+  const files = readdirSync(dist);
+
+  // Ionic is the app's, lent to the frame: a copy in the package would be a second one, and heavy.
+  it("carries no Ionic of its own", () => {
+    for (const file of files) {
+      const code = readFileSync(join(dist, file), "utf8");
+      expect(code, file).not.toMatch(/@ionic\/core|ionicframework|stencil|defineCustomElement|__registerHost/i);
+      expect(code, file).not.toMatch(/^\s*import\s.*from\s+["'](?!\.\/)/m);
+    }
+  });
+
+  // Small: it is plain code, no library.
+  it("stays under 128 KiB", () => {
+    const bytes = files.reduce((sum, file) => sum + statSync(join(dist, file)).size, 0);
+    expect(bytes).toBeLessThanOrEqual(128 * 1024);
+  });
+
+  // The frame has no forms on Android and no browser dialogs anywhere.
+  it("uses no form and no browser dialog", () => {
+    const code = readFileSync(join(dist, "index.js"), "utf8");
+    expect(code).not.toMatch(/<form|\bconfirm\(|\bprompt\(|\balert\(/);
+  });
+
+  // The Ionicons app 1.6.0 registers by name in the frame: the ones the core serves at ./icon/ and
+  // the ones a plugin may name for its tile. Any other name would draw nothing.
+  const LENT = [
+    "add-outline", "alarm-outline", "albums-outline", "apps-outline", "arrow-back-outline", "arrow-redo-outline",
+    "arrow-undo-outline", "arrow-up-outline", "basket-outline", "boat-outline", "book-outline", "brush-outline",
+    "calculator-outline", "calendar-outline", "camera-outline", "chatbubble-outline", "checkbox-outline",
+    "checkmark-outline", "close-outline", "cloud-done-outline", "cloud-outline", "cloud-upload-outline",
+    "code-slash-outline", "color-palette-outline", "construct-outline", "contrast-outline", "crop-outline",
+    "cube-outline", "cut-outline", "dice-outline", "document-outline", "document-text-outline", "download-outline",
+    "easel-outline", "ellipse-outline", "ellipsis-horizontal-outline", "expand-outline", "extension-puzzle-outline",
+    "eye-off-outline", "eye-outline", "folder-open-outline", "folder-outline", "game-controller-outline",
+    "grid-outline", "hand-left-outline", "image-outline", "key-outline", "language-outline", "link-outline",
+    "list-outline", "location-outline", "lock-closed-outline", "map-outline", "mic-outline", "move-outline",
+    "musical-notes-outline", "options-outline", "pause-outline", "pencil-outline", "play-outline", "qr-code-outline",
+    "radio-button-on-outline", "reader-outline", "refresh-outline", "remove-outline", "resize-outline", "save-outline",
+    "scan-outline", "search-outline", "send-outline", "shield-outline", "sparkles-outline", "square-outline",
+    "stats-chart-outline", "text-outline", "time-outline", "timer-outline", "trash-outline", "trophy-outline",
+  ];
+
+  it("names only icons the app lends", () => {
+    const code = readFileSync(join(dist, "index.js"), "utf8");
+    const named = [...new Set([...code.matchAll(/"([a-z0-9]+(?:-[a-z0-9]+)*-outline)"/g)].map(([, name]) => name))];
+    expect(named.length).toBeGreaterThan(0);
+    for (const name of named) expect(LENT, name).toContain(name);
+    expect(LENT).toContain(manifest.icon);
   });
 });

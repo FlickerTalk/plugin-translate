@@ -35,6 +35,7 @@ const CATALOGUE = {
     removeAsk: "Remove this language from the phone?",
     removed: "Removed: {language}",
     notRemoved: "This phone manages its languages in its own Settings.",
+    ok: "OK",
   },
   es: {
     title: "Traductor",
@@ -67,6 +68,7 @@ const CATALOGUE = {
     removeAsk: "¿Quitar este idioma del teléfono?",
     removed: "Quitado: {language}",
     notRemoved: "Este teléfono gestiona sus idiomas en sus propios Ajustes.",
+    ok: "Aceptar",
   },
   pt: {
     title: "Tradutor",
@@ -99,6 +101,7 @@ const CATALOGUE = {
     removeAsk: "Remover este idioma do telefone?",
     removed: "Removido: {language}",
     notRemoved: "Este telefone gerencia os idiomas nos próprios Ajustes.",
+    ok: "OK",
   },
   fr: {
     title: "Traducteur",
@@ -131,6 +134,7 @@ const CATALOGUE = {
     removeAsk: "Supprimer cette langue du téléphone ?",
     removed: "Langue supprimée : {language}",
     notRemoved: "Ce téléphone gère ses langues dans ses propres Réglages.",
+    ok: "OK",
   },
   de: {
     title: "Übersetzer",
@@ -163,6 +167,7 @@ const CATALOGUE = {
     removeAsk: "Diese Sprache vom Telefon entfernen?",
     removed: "Entfernt: {language}",
     notRemoved: "Dieses Telefon verwaltet seine Sprachen in seinen eigenen Einstellungen.",
+    ok: "OK",
   },
   it: {
     title: "Traduttore",
@@ -195,6 +200,7 @@ const CATALOGUE = {
     removeAsk: "Rimuovere questa lingua dal telefono?",
     removed: "Rimossa: {language}",
     notRemoved: "Questo telefono gestisce le sue lingue nelle proprie Impostazioni.",
+    ok: "OK",
   },
   ro: {
     title: "Traducător",
@@ -227,6 +233,7 @@ const CATALOGUE = {
     removeAsk: "Elimini această limbă de pe telefon?",
     removed: "Eliminată: {language}",
     notRemoved: "Acest telefon își gestionează limbile în propriile Setări.",
+    ok: "OK",
   },
   ru: {
     title: "Переводчик",
@@ -259,6 +266,7 @@ const CATALOGUE = {
     removeAsk: "Удалить этот язык с телефона?",
     removed: "Удалено: {language}",
     notRemoved: "Этот телефон управляет языками в собственных настройках.",
+    ok: "ОК",
   },
   uk: {
     title: "Перекладач",
@@ -291,6 +299,7 @@ const CATALOGUE = {
     removeAsk: "Видалити цю мову з телефона?",
     removed: "Видалено: {language}",
     notRemoved: "Цей телефон керує мовами у власних налаштуваннях.",
+    ok: "Гаразд",
   },
   pl: {
     title: "Tłumacz",
@@ -323,6 +332,7 @@ const CATALOGUE = {
     removeAsk: "Usunąć ten język z telefonu?",
     removed: "Usunięto: {language}",
     notRemoved: "Ten telefon zarządza językami we własnych ustawieniach.",
+    ok: "OK",
   },
   tr: {
     title: "Çevirmen",
@@ -355,6 +365,7 @@ const CATALOGUE = {
     removeAsk: "Bu dil telefondan kaldırılsın mı?",
     removed: "Kaldırıldı: {language}",
     notRemoved: "Bu telefon dillerini kendi Ayarlar'ında yönetir.",
+    ok: "Tamam",
   },
   ar: {
     title: "المترجم",
@@ -387,6 +398,7 @@ const CATALOGUE = {
     removeAsk: "إزالة هذه اللغة من الهاتف؟",
     removed: "تمت الإزالة: {language}",
     notRemoved: "يدير هذا الهاتف لغاته في إعداداته الخاصة.",
+    ok: "موافق",
   },
   hi: {
     title: "अनुवादक",
@@ -419,6 +431,7 @@ const CATALOGUE = {
     removeAsk: "यह भाषा फ़ोन से हटाएँ?",
     removed: "हटाई गई: {language}",
     notRemoved: "यह फ़ोन अपनी भाषाएँ अपनी ही सेटिंग्स में संभालता है।",
+    ok: "ठीक है",
   },
   bn: {
     title: "অনুবাদক",
@@ -451,6 +464,7 @@ const CATALOGUE = {
     removeAsk: "এই ভাষাটি ফোন থেকে সরাবেন?",
     removed: "সরানো হয়েছে: {language}",
     notRemoved: "এই ফোন তার ভাষাগুলো নিজের সেটিংসে পরিচালনা করে।",
+    ok: "ঠিক আছে",
   },
   id: {
     title: "Penerjemah",
@@ -483,6 +497,7 @@ const CATALOGUE = {
     removeAsk: "Hapus bahasa ini dari ponsel?",
     removed: "Dihapus: {language}",
     notRemoved: "Ponsel ini mengelola bahasanya di Pengaturannya sendiri.",
+    ok: "OK",
   },
   vi: {
     title: "Trình dịch",
@@ -515,6 +530,7 @@ const CATALOGUE = {
     removeAsk: "Gỡ ngôn ngữ này khỏi điện thoại?",
     removed: "Đã gỡ: {language}",
     notRemoved: "Điện thoại này tự quản lý ngôn ngữ trong phần Cài đặt của nó.",
+    ok: "OK",
   },
   th: {
     title: "แปลภาษา",
@@ -547,6 +563,7 @@ const CATALOGUE = {
     removeAsk: "ลบภาษานี้ออกจากโทรศัพท์ไหม",
     removed: "ลบแล้ว: {language}",
     notRemoved: "โทรศัพท์เครื่องนี้จัดการภาษาในการตั้งค่าของตัวเอง",
+    ok: "ตกลง",
   },
   ja: {
     title: "翻訳",
@@ -579,6 +596,7 @@ const CATALOGUE = {
     removeAsk: "この言語を端末から削除しますか？",
     removed: "削除しました：{language}",
     notRemoved: "この端末では、言語は端末自体の設定で管理されています。",
+    ok: "OK",
   },
   ko: {
     title: "번역기",
@@ -611,6 +629,7 @@ const CATALOGUE = {
     removeAsk: "이 언어를 휴대폰에서 삭제할까요?",
     removed: "삭제됨: {language}",
     notRemoved: "이 휴대폰은 언어를 자체 설정에서 관리합니다.",
+    ok: "확인",
   },
   "zh-CN": {
     title: "翻译",
@@ -643,6 +662,7 @@ const CATALOGUE = {
     removeAsk: "要从手机上移除这种语言吗？",
     removed: "已移除：{language}",
     notRemoved: "这部手机在其自身的设置中管理语言。",
+    ok: "确定",
   },
   "zh-TW": {
     title: "翻譯",
@@ -675,6 +695,7 @@ const CATALOGUE = {
     removeAsk: "要從手機上移除這種語言嗎？",
     removed: "已移除：{language}",
     notRemoved: "這支手機在自己的設定中管理語言。",
+    ok: "確定",
   },
 };
 
